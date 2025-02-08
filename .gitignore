@@ -22,3 +22,4 @@ yarn-error.log*
 next-env.d.ts
 be/node_modules
 fe/node_modules
+fe/.next
