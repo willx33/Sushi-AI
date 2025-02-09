@@ -31,7 +31,6 @@ type OpenAIResponse = {
 };
 
 // ----- API Key Endpoints -----
-
 app.post('/api/apikey', (req: Request, res: Response) => {
   const { apiKey } = req.body;
   try {
@@ -77,11 +76,15 @@ app.post('/api/chat', async (req: Request, res: Response) => {
     console.log("Making request to OpenAI with model:", model);
     console.log("User message:", message);
 
+    // Include a system prompt along with the user message
     const openAiResponse = await axios.post<OpenAIResponse>(
       'https://api.openai.com/v1/chat/completions',
       {
         model,
-        messages: [{ role: 'user', content: message }],
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant.' },
+          { role: 'user', content: message }
+        ],
       },
       {
         headers: {
@@ -93,12 +96,16 @@ app.post('/api/chat', async (req: Request, res: Response) => {
 
     console.log("OpenAI API response data:", openAiResponse.data);
 
-    // Cast the response data as OpenAIResponse
-    const reply = (openAiResponse.data as OpenAIResponse).choices[0].message.content;
+    const reply = openAiResponse.data.choices[0].message.content;
     res.json({ response: reply });
-  } catch (error) {
-    console.error('Error communicating with OpenAI API:', error);
-    res.status(500).json({ error: 'Failed to get response from OpenAI' });
+  } catch (error: any) {
+    // Log error details (if available) so you can see exactly what OpenAI responded with.
+    console.error('Error communicating with OpenAI API:', error.response?.data || error);
+    if (error.response?.status === 429) {
+      res.status(429).json({ error: 'Rate limit reached, please try again later.' });
+    } else {
+      res.status(500).json({ error: 'Failed to get response from OpenAI' });
+    }
   }
 });
 

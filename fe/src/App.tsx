@@ -1,4 +1,3 @@
-// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
@@ -110,8 +109,8 @@ export default function App() {
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <div className="w-1/4 bg-white border-r">
+    <div className="flex h-screen bg-background">
+      <div className="w-1/4 bg-card border-r">
         <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
         <Sidebar
           chats={chats}
@@ -127,7 +126,7 @@ export default function App() {
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Start a new chat or select an existing one.
               </p>
             </div>
