@@ -35,8 +35,9 @@ type OpenAIResponse = {
 app.post('/api/apikey', (req: Request, res: Response) => {
   const { apiKey } = req.body;
   try {
-    // Correctly write the API key to the .env file using a template literal
+    // Write the API key correctly to the .env file
     writeFileSync(envFilePath, `OPENAI_API_KEY=${apiKey}\n`, { flag: 'w' });
+    console.log("Saved API key to file.");
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving API key:', error);
@@ -46,9 +47,13 @@ app.post('/api/apikey', (req: Request, res: Response) => {
 
 app.get('/api/apikey', (req: Request, res: Response) => {
   try {
-    if (!existsSync(envFilePath)) return res.json({ apiKey: "" });
+    if (!existsSync(envFilePath)) {
+      console.warn("No .env file found when reading API key.");
+      return res.json({ apiKey: "" });
+    }
     const envContent = readFileSync(envFilePath, 'utf-8');
     const apiKey = envContent.match(/OPENAI_API_KEY=(.*)/)?.[1]?.trim() || "";
+    console.log("Read API key from file:", apiKey ? "[HIDDEN]" : "empty");
     res.json({ apiKey });
   } catch (error) {
     console.error('Error reading API key:', error);
@@ -59,7 +64,6 @@ app.get('/api/apikey', (req: Request, res: Response) => {
 // ----- Chat Endpoint -----
 app.post('/api/chat', async (req: Request, res: Response) => {
   const { message, model = 'gpt-3.5-turbo' } = req.body;
-
   try {
     if (!existsSync(envFilePath)) {
       return res.status(400).json({ error: 'API key not set' });
@@ -70,7 +74,10 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'API key not set' });
     }
 
-    const response = await axios.post<OpenAIResponse>(
+    console.log("Making request to OpenAI with model:", model);
+    console.log("User message:", message);
+
+    const openAiResponse = await axios.post<OpenAIResponse>(
       'https://api.openai.com/v1/chat/completions',
       {
         model,
@@ -84,7 +91,10 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       }
     );
 
-    const reply = response.data.choices[0].message.content;
+    console.log("OpenAI API response data:", openAiResponse.data);
+
+    // Cast the response data as OpenAIResponse
+    const reply = (openAiResponse.data as OpenAIResponse).choices[0].message.content;
     res.json({ response: reply });
   } catch (error) {
     console.error('Error communicating with OpenAI API:', error);

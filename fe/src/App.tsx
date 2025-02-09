@@ -1,3 +1,4 @@
+// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
@@ -23,7 +24,7 @@ export default function App() {
 
   // Fetch any saved API key from the backend on mount
   useEffect(() => {
-    fetch("http://localhost:3001/api/apikey")
+    fetch("/api/apikey")
       .then((res) => res.json())
       .then((data) => {
         if (data.apiKey) {
@@ -56,7 +57,6 @@ export default function App() {
 
     const newMessage: Message = { role: "user", content };
 
-    // Update the chat locally
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
@@ -70,8 +70,7 @@ export default function App() {
     );
 
     try {
-      // Note: We no longer send the API key in the body—the backend reads it from the .env file.
-      const response = await fetch("http://localhost:3001/api/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -80,6 +79,8 @@ export default function App() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Backend error response:", errorText);
         throw new Error("Failed to fetch response from the backend");
       }
 
@@ -92,10 +93,7 @@ export default function App() {
       setChats((prevChats) =>
         prevChats.map((chat) =>
           chat.id === selectedChatId
-            ? {
-                ...chat,
-                messages: [...chat.messages, assistantMessage],
-              }
+            ? { ...chat, messages: [...chat.messages, assistantMessage] }
             : chat
         )
       );
@@ -124,10 +122,7 @@ export default function App() {
       </div>
       <div className="w-3/4">
         {selectedChat ? (
-          <ChatWindow
-            messages={selectedChat.messages}
-            onSendMessage={handleSendMessage}
-          />
+          <ChatWindow messages={selectedChat.messages} onSendMessage={handleSendMessage} />
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
