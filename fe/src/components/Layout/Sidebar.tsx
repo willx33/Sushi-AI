@@ -1,13 +1,14 @@
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { PlusCircle } from "lucide-react"
-import { Chat } from "@/types/chat"
+// fe/src/components/Layout/Sidebar.tsx
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
+import { Chat } from "@/types/chat";
 
 interface SidebarProps {
-  chats: Chat[]
-  onNewChat: () => void
-  onSelectChat: (chatId: string) => void
-  selectedChatId?: string
+  chats: Chat[];
+  onNewChat: () => void;
+  onSelectChat: (chatId: string) => void;
+  selectedChatId?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -17,21 +18,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedChatId,
 }) => {
   return (
-    <div className="w-64 h-screen bg-zinc-50 border-r border-zinc-200 p-4 flex flex-col">
-      <Button
-        onClick={onNewChat}
-        className="w-full mb-4"
-        variant="secondary"
-      >
-        <PlusCircle className="mr-2 h-4 w-4" />
+    <div className="flex flex-col p-4 space-y-2">
+      <Button onClick={onNewChat} className="w-full" variant="secondary">
+        <PlusCircle className="mr-2 h-5 w-5" />
         New Chat
       </Button>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto mt-4">
         {chats.map((chat) => (
           <Button
             key={chat.id}
             variant={selectedChatId === chat.id ? "default" : "ghost"}
-            className="w-full justify-start mb-2 truncate"
+            className="w-full justify-start text-left mb-2"
             onClick={() => onSelectChat(chat.id)}
           >
             {chat.title}
@@ -39,5 +36,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
     </div>
-  )
-}
+  );
+};

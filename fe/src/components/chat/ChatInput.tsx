@@ -1,4 +1,4 @@
-// src/components/chat/ChatInput.tsx
+// fe/src/components/chat/ChatInput.tsx
 import React, { KeyboardEvent, useState } from 'react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -9,10 +9,7 @@ interface ChatInputProps {
   disabled?: boolean;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({
-  onSendMessage,
-  disabled,
-}) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
   const [message, setMessage] = useState('');
 
   const handleSend = () => {
@@ -30,7 +27,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="flex gap-2 p-4 border-t border-zinc-200">
+    <div className="flex gap-2 p-4 border-t border-gray-300">
       <Input
         value={message}
         onChange={(e) => setMessage(e.target.value)}

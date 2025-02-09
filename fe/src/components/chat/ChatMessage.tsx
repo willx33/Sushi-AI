@@ -1,25 +1,25 @@
-import * as React from "react"
-import { Message } from "@/types/chat"
+// fe/src/components/chat/ChatMessage.tsx
+import * as React from "react";
+import { Message } from "@/types/chat";
 
 interface ChatMessageProps {
-  message: Message
+  message: Message;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+  const isUser = message.role === "user";
   return (
-    <div
-      className={`p-4 ${
-        message.role === "assistant"
-          ? "bg-zinc-50"
-          : "bg-white"
-      }`}
-    >
-      <div className="max-w-3xl mx-auto">
-        <div className="font-medium mb-1">
-          {message.role === "assistant" ? "Assistant" : "You"}
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} p-2`}>
+      <div
+        className={`max-w-3xl p-4 rounded-lg ${
+          isUser ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-900"
+        }`}
+      >
+        <div className="text-sm mb-1 font-medium">
+          {isUser ? "You" : "Assistant"}
         </div>
-        <div className="text-zinc-700">{message.content}</div>
+        <div className="text-sm whitespace-pre-wrap">{message.content}</div>
       </div>
     </div>
-  )
-}
+  );
+};

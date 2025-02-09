@@ -1,10 +1,10 @@
+// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { Chat, Message } from "@/types/chat";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -20,6 +20,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("chats", JSON.stringify(chats));
   }, [chats]);
+
+  // Fetch any saved API key from the backend on mount
+  useEffect(() => {
+    fetch("http://localhost:3001/api/apikey")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.apiKey) {
+          setApiKey(data.apiKey);
+        }
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   const handleNewChat = () => {
     const newChat: Chat = {
@@ -44,8 +56,8 @@ export default function App() {
 
     const newMessage: Message = { role: "user", content };
 
-    setChats((chats) =>
-      chats.map((chat) =>
+    setChats((prevChats) =>
+      prevChats.map((chat) =>
         chat.id === selectedChatId
           ? {
               ...chat,
@@ -55,15 +67,53 @@ export default function App() {
           : chat
       )
     );
+
+    try {
+      const response = await fetch("http://localhost:3001/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: content }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch response from the backend");
+      }
+
+      const data = await response.json();
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: data.response,
+      };
+
+      setChats((prevChats) =>
+        prevChats.map((chat) =>
+          chat.id === selectedChatId
+            ? {
+                ...chat,
+                messages: [...chat.messages, assistantMessage],
+              }
+            : chat
+        )
+      );
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "There was an issue communicating with the OpenAI API.",
+        variant: "destructive",
+      });
+      console.error("Error fetching response:", error);
+    }
   };
 
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
   return (
-    <div className="fixed inset-0 flex h-screen bg-background">
+    <div className="flex h-screen bg-gray-100">
       <ResizablePanelGroup direction="horizontal">
         <ResizablePanel defaultSize={20} minSize={15} maxSize={25}>
-          <div className="flex h-full flex-col">
+          <div className="flex h-full flex-col border-r border-gray-300 bg-white">
             <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
             <Sidebar
               chats={chats}
@@ -74,21 +124,21 @@ export default function App() {
           </div>
         </ResizablePanel>
         <ResizablePanel defaultSize={80}>
-          <ScrollArea className="h-full">
-            {selectedChat ? (
-              <ChatWindow
-                messages={selectedChat.messages}
-                onSendMessage={handleSendMessage}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center space-y-4">
-                <div className="text-center space-y-2">
-                  <h1 className="text-2xl font-bold tracking-tighter">Welcome to ChatGPT</h1>
-                  <p className="text-muted-foreground">Choose a chat or start a new one</p>
-                </div>
+          {selectedChat ? (
+            <ChatWindow
+              messages={selectedChat.messages}
+              onSendMessage={handleSendMessage}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
+                <p className="text-gray-600">
+                  Start a new chat or select an existing one.
+                </p>
               </div>
-            )}
-          </ScrollArea>
+            </div>
+          )}
         </ResizablePanel>
       </ResizablePanelGroup>
       <Toaster />
