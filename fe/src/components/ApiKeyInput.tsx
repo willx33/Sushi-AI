@@ -1,4 +1,3 @@
-// fe/src/components/ApiKeyInput.tsx
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,12 @@ import { Button } from "@/components/ui/button";
 interface ApiKeyInputProps {
   onSave: (apiKey: string) => void;
   initialKey?: string;
+}
+
+// Helper to mask the API key while still showing a hint of its value.
+function maskApiKey(key: string): string {
+  if (key.length <= 8) return "••••••••";
+  return `${key.substring(0, 4)}••••••${key.substring(key.length - 4)}`;
 }
 
 export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
@@ -18,7 +23,8 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   const handleSave = async () => {
     if (apiKey.trim()) {
       try {
-        const response = await fetch("http://localhost:3001/api/apikey", {
+        // Use a relative URL so the Vite proxy (in vite.config.ts) handles it.
+        const response = await fetch("/api/apikey", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey }),
@@ -53,7 +59,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
         </>
       ) : (
         <>
-          <Input type="password" value="••••••••" disabled className="max-w-md" />
+          <Input type="text" value={maskApiKey(apiKey)} disabled className="max-w-md" />
           <Button variant="ghost" onClick={() => setIsEditing(true)}>
             Edit
           </Button>
