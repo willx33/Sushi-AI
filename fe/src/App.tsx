@@ -53,9 +53,9 @@ export default function App() {
       });
       return;
     }
-
+  
     const newMessage: Message = { role: "user", content };
-
+  
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
@@ -67,26 +67,26 @@ export default function App() {
           : chat
       )
     );
-
+  
     try {
       const response = await fetch("http://localhost:3001/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify({ message: content, apiKey }),  // Include the API key
       });
-
+  
       if (!response.ok) {
         throw new Error("Failed to fetch response from the backend");
       }
-
+  
       const data = await response.json();
       const assistantMessage: Message = {
         role: "assistant",
         content: data.response,
       };
-
+  
       setChats((prevChats) =>
         prevChats.map((chat) =>
           chat.id === selectedChatId
@@ -106,6 +106,7 @@ export default function App() {
       console.error("Error fetching response:", error);
     }
   };
+  
 
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
