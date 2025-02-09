@@ -1,31 +1,30 @@
-// src/App.tsx
-import { useEffect, useState } from 'react';
-import { Sidebar } from './components/Layout/Sidebar';
-import { ChatWindow } from './components/chat/ChatWindow';
-import { ApiKeyInput } from './components/ApiKeyInput';
-import { Chat, Message } from './types/chat';
-import { ResizablePanel, ResizablePanelGroup } from './components/ui/resizable';
-import { ScrollArea } from './components/ui/scroll-area';
-import { Toaster } from './components/ui/toaster';
-import { useToast } from './components/ui/use-toast';
+import React, { useState, useEffect } from "react";
+import { Sidebar } from "@/components/Layout/Sidebar";
+import { ChatWindow } from "@/components/chat/ChatWindow";
+import { ApiKeyInput } from "@/components/ApiKeyInput";
+import { Chat, Message } from "@/types/chat";
+import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(() => {
-    const saved = localStorage.getItem('chats');
+    const saved = localStorage.getItem("chats");
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  const [apiKey, setApiKey] = useState<string>('');
+  const [apiKey, setApiKey] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
-    localStorage.setItem('chats', JSON.stringify(chats));
+    localStorage.setItem("chats", JSON.stringify(chats));
   }, [chats]);
 
   const handleNewChat = () => {
     const newChat: Chat = {
       id: Date.now().toString(),
-      title: 'New Chat',
+      title: "New Chat",
       messages: [],
       createdAt: new Date(),
     };
@@ -35,30 +34,30 @@ export default function App() {
 
   const handleSendMessage = async (content: string) => {
     if (!selectedChatId || !apiKey) {
-      toast({ 
+      toast({
         title: "Missing API Key",
         description: "Please enter your OpenAI API key first",
-        variant: "destructive" 
+        variant: "destructive",
       });
       return;
     }
 
-    const newMessage: Message = { role: 'user', content };
-    
-    setChats(chats => chats.map(chat => 
-      chat.id === selectedChatId 
-        ? { 
-            ...chat, 
-            messages: [...chat.messages, newMessage],
-            title: chat.messages.length === 0 ? content.slice(0, 30) : chat.title,
-          }
-        : chat
-    ));
+    const newMessage: Message = { role: "user", content };
 
-    // TODO: Add OpenAI API integration
+    setChats((chats) =>
+      chats.map((chat) =>
+        chat.id === selectedChatId
+          ? {
+              ...chat,
+              messages: [...chat.messages, newMessage],
+              title: chat.messages.length === 0 ? content.slice(0, 30) : chat.title,
+            }
+          : chat
+      )
+    );
   };
 
-  const selectedChat = chats.find(chat => chat.id === selectedChatId);
+  const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
   return (
     <div className="fixed inset-0 flex h-screen bg-background">

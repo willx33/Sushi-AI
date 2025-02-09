@@ -19,8 +19,9 @@
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-resizable-panels": "^2.0.12",
-    "tailwind-merge": "^3.0.1"
+    "react-resizable-panels": "^2.1.7",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

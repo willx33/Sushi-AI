@@ -1,14 +1,13 @@
-// src/components/layout/Sidebar.tsx
-import React from 'react';
-import { Button } from '../ui/button';
-import { PlusCircle } from 'lucide-react';
-import { Chat } from '@/types/chat';
+import * as React from "react"
+import { Button } from "@/components/ui/button"
+import { PlusCircle } from "lucide-react"
+import { Chat } from "@/types/chat"
 
 interface SidebarProps {
-  chats: Chat[];
-  onNewChat: () => void;
-  onSelectChat: (chatId: string) => void;
-  selectedChatId?: string;
+  chats: Chat[]
+  onNewChat: () => void
+  onSelectChat: (chatId: string) => void
+  selectedChatId?: string
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -40,5 +39,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
     </div>
-  );
-};
+  )
+}
