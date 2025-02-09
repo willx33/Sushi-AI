@@ -1,7 +1,9 @@
+// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
+import { ModelSelector } from "@/components/ModelSelector";
 import { Chat, Message } from "@/types/chat";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,6 +15,9 @@ export default function App() {
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
   const [apiKey, setApiKey] = useState<string>("");
+  const [selectedModel, setSelectedModel] = useState<string>(
+    () => localStorage.getItem("selectedModel") || "gpt-3.5-turbo"
+  );
 
   const { toast } = useToast();
 
@@ -74,7 +79,8 @@ export default function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: content, model: 'gpt-3.5-turbo' }),
+        // Send the selected model in the API request
+        body: JSON.stringify({ message: content, model: selectedModel }),
       });
 
       if (!response.ok) {
@@ -112,6 +118,8 @@ export default function App() {
     <div className="flex h-screen bg-background">
       <div className="w-1/4 bg-card border-r">
         <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
+        {/* New ModelSelector component */}
+        <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
         <Sidebar
           chats={chats}
           onNewChat={handleNewChat}
