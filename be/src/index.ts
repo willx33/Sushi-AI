@@ -1,4 +1,3 @@
-// be/src/index.ts
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -13,12 +12,26 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-// The .env file is expected to be in the parent directory of dist (i.e. in the "be" folder)
 const envFilePath = join(__dirname, "../.env");
+
+// Define the type for OpenAI API response
+type OpenAIResponse = {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: {
+    index: number;
+    message: {
+      role: string;
+      content: string;
+    };
+    finish_reason: string;
+  }[];
+};
 
 // ----- API Key Endpoints -----
 
-// Save the API key to .env
 app.post('/api/apikey', (req: Request, res: Response) => {
   const { apiKey } = req.body;
   try {
@@ -30,7 +43,6 @@ app.post('/api/apikey', (req: Request, res: Response) => {
   }
 });
 
-// Read the API key from .env
 app.get('/api/apikey', (req: Request, res: Response) => {
   try {
     if (!existsSync(envFilePath)) return res.json({ apiKey: "" });
@@ -44,7 +56,6 @@ app.get('/api/apikey', (req: Request, res: Response) => {
 });
 
 // ----- Chat Endpoint -----
-// Receives a user’s message, reads the latest API key, calls OpenAI’s Chat API, and returns the reply.
 app.post('/api/chat', async (req: Request, res: Response) => {
   const { message, model = 'gpt-3.5-turbo' } = req.body;
 
@@ -58,7 +69,7 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'API key not set' });
     }
 
-    const response = await axios.post(
+    const response = await axios.post<OpenAIResponse>(
       'https://api.openai.com/v1/chat/completions',
       {
         model,
