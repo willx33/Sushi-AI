@@ -1,11 +1,19 @@
+// src/components/ui/toast.tsx
 import * as React from "react";
 import * as ToastPrimitive from "@radix-ui/react-toast";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const ToastProvider = ToastPrimitive.Provider;
+// Export a type for the Toast action element from Radix
+export type ToastActionElement = React.ElementRef<typeof ToastPrimitive.Action>;
 
-const ToastViewport = React.forwardRef<
+// Define ToastProps as the props of ToastPrimitive.Root plus our variants
+export type ToastProps = React.ComponentPropsWithoutRef<typeof ToastPrimitive.Root> &
+  VariantProps<typeof toastVariants>;
+
+export const ToastProvider = ToastPrimitive.Provider;
+
+export const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Viewport>
 >(({ className, ...props }, ref) => (
@@ -21,13 +29,13 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitive.Viewport.displayName;
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-2 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-2 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all",
   {
     variants: {
       variant: {
         default: "border bg-background",
         destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+          "border border-destructive bg-destructive text-destructive-foreground",
       },
     },
     defaultVariants: {
@@ -36,10 +44,9 @@ const toastVariants = cva(
   }
 );
 
-const Toast = React.forwardRef<
+export const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitive.Root> &
-    VariantProps<typeof toastVariants>
+  ToastProps
 >(({ className, variant, ...props }, ref) => {
   return (
     <ToastPrimitive.Root
@@ -51,4 +58,4 @@ const Toast = React.forwardRef<
 });
 Toast.displayName = ToastPrimitive.Root.displayName;
 
-export { type ToastProps, ToastProvider, ToastViewport, Toast };
+export { toastVariants };

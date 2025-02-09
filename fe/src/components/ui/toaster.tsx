@@ -1,19 +1,11 @@
-interface ToastProps {
-  id: string;
-  title?: React.ReactNode;
-  description?: React.ReactNode;
-  action?: React.ReactNode;
-}
+// src/components/ui/toaster.tsx
+import * as React from "react";
+import { ToastProvider, ToastViewport } from "./toast";
 
-const Toast = React.forwardRef<
-  React.ElementRef<typeof ToastPrimitive.Root>,
-  ToastProps // Explicitly define the types here
->(({ className, variant, ...props }, ref) => {
+export const Toaster: React.FC = () => {
   return (
-    <ToastPrimitive.Root
-      ref={ref}
-      className={cn(toastVariants({ variant }), className)}
-      {...props}
-    />
-  )
-})
+    <ToastProvider>
+      <ToastViewport />
+    </ToastProvider>
+  );
+};

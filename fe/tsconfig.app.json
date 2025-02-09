@@ -15,7 +15,7 @@
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
-      "@shadcn/*": ["./node_modules/.shadcn/*"]
+      "@shadcn/*": ["../node_modules/.shadcn/*"]
     }
   },
   "include": ["src/**/*"],
