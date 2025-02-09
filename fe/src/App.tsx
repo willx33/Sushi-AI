@@ -16,6 +16,7 @@ export default function App() {
 
   const { toast } = useToast();
 
+  // Persist chats in local storage
   useEffect(() => {
     localStorage.setItem("chats", JSON.stringify(chats));
   }, [chats]);
@@ -52,9 +53,10 @@ export default function App() {
       });
       return;
     }
-  
+
     const newMessage: Message = { role: "user", content };
-  
+
+    // Update the chat locally
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
@@ -66,26 +68,27 @@ export default function App() {
           : chat
       )
     );
-  
+
     try {
+      // Note: We no longer send the API key in the body—the backend reads it from the .env file.
       const response = await fetch("http://localhost:3001/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: content, model: 'gpt-3.5-turbo', apiKey }),
+        body: JSON.stringify({ message: content, model: 'gpt-3.5-turbo' }),
       });
-  
+
       if (!response.ok) {
         throw new Error("Failed to fetch response from the backend");
       }
-  
+
       const data = await response.json();
       const assistantMessage: Message = {
         role: "assistant",
         content: data.response,
       };
-  
+
       setChats((prevChats) =>
         prevChats.map((chat) =>
           chat.id === selectedChatId

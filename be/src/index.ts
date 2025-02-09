@@ -14,7 +14,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const envFilePath = join(__dirname, "../.env");
 
-// Define the type for OpenAI API response
+// Define the type for the OpenAI API response
 type OpenAIResponse = {
   id: string;
   object: string;
@@ -27,7 +27,7 @@ type OpenAIResponse = {
       content: string;
     };
     finish_reason: string;
-  }[]; 
+  }[];
 };
 
 // ----- API Key Endpoints -----
@@ -35,11 +35,11 @@ type OpenAIResponse = {
 app.post('/api/apikey', (req: Request, res: Response) => {
   const { apiKey } = req.body;
   try {
-    // Write the API key to the .env file
+    // Correctly write the API key to the .env file using a template literal
     writeFileSync(envFilePath, `OPENAI_API_KEY=${apiKey}\n`, { flag: 'w' });
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('Error saving API key:', error);
     res.status(500).json({ error: 'Failed to save API key' });
   }
 });
@@ -51,7 +51,7 @@ app.get('/api/apikey', (req: Request, res: Response) => {
     const apiKey = envContent.match(/OPENAI_API_KEY=(.*)/)?.[1]?.trim() || "";
     res.json({ apiKey });
   } catch (error) {
-    console.error(error);
+    console.error('Error reading API key:', error);
     res.status(500).json({ error: 'Failed to read API key' });
   }
 });
