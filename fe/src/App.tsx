@@ -1,10 +1,8 @@
-// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { Chat, Message } from "@/types/chat";
-import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -15,6 +13,7 @@ export default function App() {
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
   const [apiKey, setApiKey] = useState<string>("");
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,7 +73,7 @@ export default function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: content, apiKey }),  // Include the API key
+        body: JSON.stringify({ message: content, model: 'gpt-3.5-turbo', apiKey }),
       });
   
       if (!response.ok) {
@@ -106,42 +105,37 @@ export default function App() {
       console.error("Error fetching response:", error);
     }
   };
-  
 
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={25}>
-          <div className="flex h-full flex-col border-r border-gray-300 bg-white">
-            <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
-            <Sidebar
-              chats={chats}
-              onNewChat={handleNewChat}
-              onSelectChat={setSelectedChatId}
-              selectedChatId={selectedChatId}
-            />
-          </div>
-        </ResizablePanel>
-        <ResizablePanel defaultSize={80}>
-          {selectedChat ? (
-            <ChatWindow
-              messages={selectedChat.messages}
-              onSendMessage={handleSendMessage}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
-                <p className="text-gray-600">
-                  Start a new chat or select an existing one.
-                </p>
-              </div>
+      <div className="w-1/4 bg-white border-r">
+        <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
+        <Sidebar
+          chats={chats}
+          onNewChat={handleNewChat}
+          onSelectChat={setSelectedChatId}
+          selectedChatId={selectedChatId}
+        />
+      </div>
+      <div className="w-3/4">
+        {selectedChat ? (
+          <ChatWindow
+            messages={selectedChat.messages}
+            onSendMessage={handleSendMessage}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
+              <p className="text-gray-600">
+                Start a new chat or select an existing one.
+              </p>
             </div>
-          )}
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          </div>
+        )}
+      </div>
       <Toaster />
     </div>
   );

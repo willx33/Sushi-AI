@@ -27,7 +27,7 @@ type OpenAIResponse = {
       content: string;
     };
     finish_reason: string;
-  }[];
+  }[]; 
 };
 
 // ----- API Key Endpoints -----
@@ -35,7 +35,8 @@ type OpenAIResponse = {
 app.post('/api/apikey', (req: Request, res: Response) => {
   const { apiKey } = req.body;
   try {
-    writeFileSync(envFilePath, `OPENAI_API_KEY=${apiKey}\n`);
+    // Write the API key to the .env file
+    writeFileSync(envFilePath, `OPENAI_API_KEY=${apiKey}\n`, { flag: 'w' });
     res.json({ success: true });
   } catch (error) {
     console.error(error);
