@@ -1,3 +1,4 @@
+// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
@@ -48,6 +49,8 @@ export default function App() {
     }
   }, [darkMode]);
 
+  // When creating a new chat, we start with an empty messages array.
+  // (The system instructions will later be added via the ChatInput inline field.)
   const handleNewChat = () => {
     const newChat: Chat = {
       id: Date.now().toString(),
@@ -61,16 +64,13 @@ export default function App() {
 
   /**
    * Updated send-message handler.
-   *
-   * In the old version, if memory was enabled we only added the last message.
-   * In this update we build the conversation array using the entire previous conversation,
-   * and we also prepend a system prompt if none is provided.
-   *
-   * Note: Because state updates are asynchronous, we read the current chat from
-   * the (stale) state before adding the new message. We then update the state and use
-   * the computed conversation for the API call.
+   * Now the payload includes an optional systemMessage.
    */
-  const handleSendMessage = async (payload: { message: string; includeMemory: boolean }) => {
+  const handleSendMessage = async (payload: {
+    message: string;
+    includeMemory: boolean;
+    systemMessage?: string;
+  }) => {
     if (!selectedChatId || !apiKey) {
       toast({
         title: "Missing API Key",
@@ -79,33 +79,51 @@ export default function App() {
       });
       return;
     }
-    const { message, includeMemory } = payload;
+    const { message, includeMemory, systemMessage } = payload;
     const newUserMessage: Message = { role: "user", content: message };
 
-    // Read the current chat from state (it will not include the new message yet)
-    const currentChat = chats.find((chat) => chat.id === selectedChatId) || { messages: [] };
+    // Find the current chat from state.
+    const currentChat = chats.find((chat) => chat.id === selectedChatId) || {
+      messages: [],
+    };
+    const isNewChat = currentChat.messages.length === 0;
 
-    // Build the conversation history:
+    // Build the conversation that will be sent to the API.
     let conversation: Message[] = [];
     if (includeMemory) {
-      // Use the entire existing conversation and append the new message.
-      conversation = [...currentChat.messages, newUserMessage];
-      // If the conversation does not start with a system message, add a default one.
-      if (conversation.length === 0 || conversation[0].role !== "system") {
-        conversation = [{ role: "system", content: "You are a helpful assistant." }, ...conversation];
+      if (isNewChat) {
+        conversation = systemMessage?.trim()
+          ? [{ role: "system", content: systemMessage }, newUserMessage]
+          : [newUserMessage];
+      } else {
+        conversation = [...currentChat.messages, newUserMessage];
+        // If the existing conversation does not begin with a system message, prepend a default.
+        if (!currentChat.messages[0] || currentChat.messages[0].role !== "system") {
+          conversation = [
+            { role: "system", content: "You are a helpful assistant." },
+            ...conversation,
+          ];
+        }
       }
     } else {
-      conversation = [newUserMessage];
+      conversation = systemMessage?.trim()
+        ? [{ role: "system", content: systemMessage }, newUserMessage]
+        : [newUserMessage];
     }
 
-    // Update the chat locally by adding the new user message.
+    // Update the chat locally. If this is a new chat and a system message was provided,
+    // store that system message as the first message.
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
           ? {
               ...chat,
-              messages: [...chat.messages, newUserMessage],
-              title: chat.messages.length === 0 ? message.slice(0, 30) : chat.title,
+              messages: isNewChat
+                ? systemMessage?.trim()
+                  ? [{ role: "system", content: systemMessage }, newUserMessage]
+                  : [newUserMessage]
+                : [...chat.messages, newUserMessage],
+              title: isNewChat ? message.slice(0, 30) : chat.title,
             }
           : chat
       )
@@ -205,7 +223,7 @@ export default function App() {
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <h1 className="text-2xl font-bold">Welcome to Sushi AI</h1>
+              <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
               <p className="text-muted-foreground">
                 Start a new chat or select an existing one.
               </p>
