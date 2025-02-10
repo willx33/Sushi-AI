@@ -59,6 +59,17 @@ export default function App() {
     setSelectedChatId(newChat.id);
   };
 
+  /**
+   * Updated send-message handler.
+   *
+   * In the old version, if memory was enabled we only added the last message.
+   * In this update we build the conversation array using the entire previous conversation,
+   * and we also prepend a system prompt if none is provided.
+   *
+   * Note: Because state updates are asynchronous, we read the current chat from
+   * the (stale) state before adding the new message. We then update the state and use
+   * the computed conversation for the API call.
+   */
   const handleSendMessage = async (payload: { message: string; includeMemory: boolean }) => {
     if (!selectedChatId || !apiKey) {
       toast({
@@ -71,7 +82,23 @@ export default function App() {
     const { message, includeMemory } = payload;
     const newUserMessage: Message = { role: "user", content: message };
 
-    // Update the chat locally.
+    // Read the current chat from state (it will not include the new message yet)
+    const currentChat = chats.find((chat) => chat.id === selectedChatId) || { messages: [] };
+
+    // Build the conversation history:
+    let conversation: Message[] = [];
+    if (includeMemory) {
+      // Use the entire existing conversation and append the new message.
+      conversation = [...currentChat.messages, newUserMessage];
+      // If the conversation does not start with a system message, add a default one.
+      if (conversation.length === 0 || conversation[0].role !== "system") {
+        conversation = [{ role: "system", content: "You are a helpful assistant." }, ...conversation];
+      }
+    } else {
+      conversation = [newUserMessage];
+    }
+
+    // Update the chat locally by adding the new user message.
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
@@ -83,15 +110,6 @@ export default function App() {
           : chat
       )
     );
-
-    // Build the conversation history.
-    let conversation: Message[] = [];
-    const currentChat = chats.find((chat) => chat.id === selectedChatId);
-    if (includeMemory && currentChat && currentChat.messages.length > 0) {
-      // Include only the last message from the previous conversation.
-      conversation.push(currentChat.messages[currentChat.messages.length - 1]);
-    }
-    conversation.push(newUserMessage);
 
     try {
       const response = await fetch("/api/chat", {
@@ -187,7 +205,7 @@ export default function App() {
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
+              <h1 className="text-2xl font-bold">Welcome to Sushi AI</h1>
               <p className="text-muted-foreground">
                 Start a new chat or select an existing one.
               </p>
