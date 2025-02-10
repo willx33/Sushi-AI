@@ -14,7 +14,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem("apiKey") || "");
+  const [apiKey, setApiKey] = useState<string>(
+    () => localStorage.getItem("apiKey") || ""
+  );
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     return localStorage.getItem("selectedModel") || "gpt-4o-mini";
   });
@@ -23,7 +25,6 @@ export default function App() {
     const stored = localStorage.getItem("includeMemory");
     return stored ? JSON.parse(stored) : true;
   });
-  // Dark mode state (defaulting to on)
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const stored = localStorage.getItem("darkMode");
     return stored ? JSON.parse(stored) : true;
@@ -87,7 +88,7 @@ export default function App() {
     let conversation: Message[] = [];
     const currentChat = chats.find((chat) => chat.id === selectedChatId);
     if (includeMemory && currentChat && currentChat.messages.length > 0) {
-      // Include only the last message from previous conversation.
+      // Include only the last message from the previous conversation.
       conversation.push(currentChat.messages[currentChat.messages.length - 1]);
     }
     conversation.push(newUserMessage);
@@ -137,7 +138,7 @@ export default function App() {
       {/* Sidebar wrapper */}
       <div className="relative">
         <div
-          className="transition-all duration-300 bg-card border-r h-full overflow-hidden"
+          className="transition-all duration-300 bg-card border-r h-full overflow-y-auto"
           style={{ width: sidebarOpen ? "16rem" : "2rem" }}
         >
           {sidebarOpen && (
@@ -167,7 +168,11 @@ export default function App() {
           onClick={() => setSidebarOpen((prev) => !prev)}
           className="absolute top-1/2 right-[-1rem] transform -translate-y-1/2 bg-card border border-gray-300 rounded-full p-1 z-10"
         >
-          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {sidebarOpen ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
         </button>
       </div>
       {/* Main Chat Window */}
@@ -183,7 +188,9 @@ export default function App() {
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
-              <p className="text-muted-foreground">Start a new chat or select an existing one.</p>
+              <p className="text-muted-foreground">
+                Start a new chat or select an existing one.
+              </p>
             </div>
           </div>
         )}

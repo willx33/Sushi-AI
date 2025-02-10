@@ -90,7 +90,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     <div className="p-4 border-b">
       <h2 className="font-bold mb-2">Select Model</h2>
       {open ? (
-        // Added a wrapping div with max-height and overflow-y-auto to allow scrolling
+        // When expanded, wrap the list in a container with a maximum height and vertical scroll.
         <div className="max-h-60 overflow-y-auto">
           <RadioGroup value={selectedModel} onValueChange={handleSelect}>
             {modelOptions.map((model) => (
