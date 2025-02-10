@@ -40,6 +40,13 @@ const modelOptions: ModelOption[] = [
     icon: <Aperture className="h-5 w-5" />,
   },
   {
+    id: "o1-mini",
+    name: "OpenAI o1‑mini (Cost‑Efficient Reasoning)",
+    cost: "$3.00 / $12.00 per 1M tokens",
+    context: "≈128K tokens",
+    icon: <Aperture className="h-5 w-5" />,
+  },
+  {
     id: "gpt-4",
     name: "GPT‑4 (8K)",
     cost: "$30 / $60 per 1M tokens",
