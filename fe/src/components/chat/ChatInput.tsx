@@ -1,4 +1,3 @@
-// fe/src/components/chat/ChatInput.tsx
 import React, { KeyboardEvent, useState } from "react";
 import { Button } from "../ui/button";
 import { Send } from "lucide-react";
@@ -49,13 +48,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         disabled={disabled}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y overflow-auto min-h-[2.5rem] max-h-32 pr-12"
       />
-      <div
-        className="text-xs text-right mt-1"
-        style={{ color: message.length > limit ? "red" : "inherit" }}
-      >
-        {message.length}/{limit}
-      </div>
-      <div className="mt-2 flex justify-end">
+      <div className="mt-2 flex justify-end items-center gap-2">
+        <div
+          className="text-xs"
+          style={{ color: message.length > limit ? "red" : "inherit" }}
+        >
+          {message.length}/{limit}
+        </div>
         <Button onClick={handleSend} disabled={disabled || !message.trim()}>
           <Send className="h-4 w-4" />
         </Button>
@@ -63,4 +62,5 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     </div>
   );
 };
+
 export default ChatInput;
