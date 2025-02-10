@@ -62,7 +62,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="w-full"
               />
               <Button onClick={handleSave} className="mt-2">
-                Save API Key
+                Save Key
               </Button>
             </div>
             {/* Chat Settings Section */}
