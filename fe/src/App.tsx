@@ -23,6 +23,11 @@ export default function App() {
     const stored = localStorage.getItem("includeMemory");
     return stored ? JSON.parse(stored) : true;
   });
+  // New state for dark mode – default is "on" (true)
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const stored = localStorage.getItem("darkMode");
+    return stored ? JSON.parse(stored) : true;
+  });
 
   const { toast } = useToast();
 
@@ -33,6 +38,15 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("selectedModel", selectedModel);
   }, [selectedModel]);
+
+  // Update the document's dark mode based on state
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
 
   const handleNewChat = () => {
     const newChat: Chat = {
@@ -136,6 +150,8 @@ export default function App() {
                   includeMemory={includeMemory}
                   setIncludeMemory={setIncludeMemory}
                   clearChatHistory={clearChatHistory}
+                  darkMode={darkMode}
+                  setDarkMode={setDarkMode}
                 />
               </div>
               <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />

@@ -1,4 +1,3 @@
-// fe/src/components/SettingsModal.tsx
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,8 @@ interface SettingsModalProps {
   includeMemory: boolean;
   setIncludeMemory: (include: boolean) => void;
   clearChatHistory: () => void;
+  darkMode: boolean;
+  setDarkMode: (darkMode: boolean) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -20,6 +21,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   includeMemory,
   setIncludeMemory,
   clearChatHistory,
+  darkMode,
+  setDarkMode,
 }) => {
   const [tempApiKey, setTempApiKey] = React.useState(apiKey);
 
@@ -83,6 +86,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className={cn(
                       "h-4 w-4 rounded-full bg-white transition-transform",
                       includeMemory ? "translate-x-4" : "translate-x-0"
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+            {/* Appearance Settings Section */}
+            <div className="space-y-2 border-b pb-4">
+              <h3 className="text-lg font-semibold">Appearance</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Dark Mode</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newValue = !darkMode;
+                    setDarkMode(newValue);
+                    localStorage.setItem("darkMode", JSON.stringify(newValue));
+                  }}
+                  className={cn(
+                    "w-10 h-6 flex items-center rounded-full p-1 transition-colors",
+                    darkMode ? "bg-primary" : "bg-gray-300"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-full bg-white transition-transform",
+                      darkMode ? "translate-x-4" : "translate-x-0"
                     )}
                   />
                 </button>
