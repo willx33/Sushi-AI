@@ -15,8 +15,9 @@ export default function App() {
   const [selectedChatId, setSelectedChatId] = useState<string>();
   // Initialize apiKey from localStorage
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem("apiKey") || "");
+  // Set default selected model to "gpt-4o-mini" if none saved
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    return localStorage.getItem("selectedModel") || "gpt-3.5-turbo";
+    return localStorage.getItem("selectedModel") || "gpt-4o-mini";
   });
 
   const { toast } = useToast();
@@ -65,7 +66,6 @@ export default function App() {
     );
 
     try {
-      // Include apiKey in the request body so that the server can use it.
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -119,7 +119,11 @@ export default function App() {
       </div>
       <div className="w-3/4">
         {selectedChat ? (
-          <ChatWindow messages={selectedChat.messages} onSendMessage={handleSendMessage} />
+          <ChatWindow
+            messages={selectedChat.messages}
+            onSendMessage={handleSendMessage}
+            selectedModel={selectedModel}
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
