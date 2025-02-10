@@ -49,7 +49,6 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // When creating a new chat, we start with an empty messages array.
   const handleNewChat = () => {
     const newChat: Chat = {
       id: Date.now().toString(),
@@ -61,9 +60,6 @@ export default function App() {
     setSelectedChatId(newChat.id);
   };
 
-  /**
-   * Updated send-message handler.
-   */
   const handleSendMessage = async (payload: {
     message: string;
     includeMemory: boolean;
@@ -80,13 +76,11 @@ export default function App() {
     const { message, includeMemory, systemMessage } = payload;
     const newUserMessage: Message = { role: "user", content: message };
 
-    // Find the current chat from state.
     const currentChat = chats.find((chat) => chat.id === selectedChatId) || {
       messages: [],
     };
     const isNewChat = currentChat.messages.length === 0;
 
-    // Build the conversation that will be sent to the API.
     let conversation: Message[] = [];
     if (includeMemory) {
       if (isNewChat) {
@@ -108,7 +102,6 @@ export default function App() {
         : [newUserMessage];
     }
 
-    // Update the chat locally.
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
@@ -176,19 +169,18 @@ export default function App() {
           {sidebarOpen && (
             <>
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between border-b px-4 py-2">
-                <img src="/sush.png" alt="Mini Sushi" className="w-8 h-8" />
-                <div className="w-auto">
-                  <SettingsModal
-                    apiKey={apiKey}
-                    setApiKey={setApiKey}
-                    includeMemory={includeMemory}
-                    setIncludeMemory={setIncludeMemory}
-                    clearChatHistory={clearChatHistory}
-                    darkMode={darkMode}
-                    setDarkMode={setDarkMode}
-                  />
-                </div>
+              <div className="flex items-center border-b px-4 py-2">
+                <img src="/sush.png" alt="Mini Sushi" className="w-7 h-7 mr-3.5" />
+                <div className="flex-grow" />
+                <SettingsModal
+                  apiKey={apiKey}
+                  setApiKey={setApiKey}
+                  includeMemory={includeMemory}
+                  setIncludeMemory={setIncludeMemory}
+                  clearChatHistory={clearChatHistory}
+                  darkMode={darkMode}
+                  setDarkMode={setDarkMode}
+                />
               </div>
               <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
               <Sidebar
