@@ -90,24 +90,27 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     <div className="p-4 border-b">
       <h2 className="font-bold mb-2">Select Model</h2>
       {open ? (
-        <RadioGroup value={selectedModel} onValueChange={handleSelect}>
-          {modelOptions.map((model) => (
-            <RadioGroup.Item
-              key={model.id}
-              value={model.id}
-              className="flex items-center space-x-2 p-2 border rounded transition-colors cursor-pointer"
-              title={`${model.name} – ${model.cost} • Context: ${model.context}`}
-            >
-              {model.icon}
-              <div>
-                <div className="font-medium">{model.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {model.cost} • {model.context}
+        // Added a wrapping div with max-height and overflow-y-auto to allow scrolling
+        <div className="max-h-60 overflow-y-auto">
+          <RadioGroup value={selectedModel} onValueChange={handleSelect}>
+            {modelOptions.map((model) => (
+              <RadioGroup.Item
+                key={model.id}
+                value={model.id}
+                className="flex items-center space-x-2 p-2 border rounded transition-colors cursor-pointer"
+                title={`${model.name} – ${model.cost} • Context: ${model.context}`}
+              >
+                {model.icon}
+                <div>
+                  <div className="font-medium">{model.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {model.cost} • {model.context}
+                  </div>
                 </div>
-              </div>
-            </RadioGroup.Item>
-          ))}
-        </RadioGroup>
+              </RadioGroup.Item>
+            ))}
+          </RadioGroup>
+        </div>
       ) : (
         <button
           onClick={() => setOpen(true)}
