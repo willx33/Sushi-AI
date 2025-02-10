@@ -50,7 +50,6 @@ export default function App() {
   }, [darkMode]);
 
   // When creating a new chat, we start with an empty messages array.
-  // (The system instructions will later be added via the ChatInput inline field.)
   const handleNewChat = () => {
     const newChat: Chat = {
       id: Date.now().toString(),
@@ -64,7 +63,6 @@ export default function App() {
 
   /**
    * Updated send-message handler.
-   * Now the payload includes an optional systemMessage.
    */
   const handleSendMessage = async (payload: {
     message: string;
@@ -97,7 +95,6 @@ export default function App() {
           : [newUserMessage];
       } else {
         conversation = [...currentChat.messages, newUserMessage];
-        // If the existing conversation does not begin with a system message, prepend a default.
         if (!currentChat.messages[0] || currentChat.messages[0].role !== "system") {
           conversation = [
             { role: "system", content: "You are a helpful assistant." },
@@ -111,8 +108,7 @@ export default function App() {
         : [newUserMessage];
     }
 
-    // Update the chat locally. If this is a new chat and a system message was provided,
-    // store that system message as the first message.
+    // Update the chat locally.
     setChats((prevChats) =>
       prevChats.map((chat) =>
         chat.id === selectedChatId
@@ -179,16 +175,20 @@ export default function App() {
         >
           {sidebarOpen && (
             <>
-              <div className="p-4 border-b">
-                <SettingsModal
-                  apiKey={apiKey}
-                  setApiKey={setApiKey}
-                  includeMemory={includeMemory}
-                  setIncludeMemory={setIncludeMemory}
-                  clearChatHistory={clearChatHistory}
-                  darkMode={darkMode}
-                  setDarkMode={setDarkMode}
-                />
+              {/* Sidebar Header */}
+              <div className="flex items-center justify-between border-b px-4 py-2">
+                <img src="/sush.png" alt="Mini Sushi" className="w-8 h-8" />
+                <div className="w-auto">
+                  <SettingsModal
+                    apiKey={apiKey}
+                    setApiKey={setApiKey}
+                    includeMemory={includeMemory}
+                    setIncludeMemory={setIncludeMemory}
+                    clearChatHistory={clearChatHistory}
+                    darkMode={darkMode}
+                    setDarkMode={setDarkMode}
+                  />
+                </div>
               </div>
               <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
               <Sidebar
@@ -228,7 +228,7 @@ export default function App() {
                 alt="Sushi"
                 className="mx-auto mb-4 w-64 h-auto"
               />
-              <h1 className="text-2xl font-bold">Welcome to Sushi AI</h1>
+              <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
               <p className="text-muted-foreground">
                 Start a new chat or select an existing one.
               </p>
