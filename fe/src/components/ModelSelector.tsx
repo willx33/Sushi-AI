@@ -19,13 +19,6 @@ const modelOptions: ModelOption[] = [
     icon: <Aperture className="h-5 w-5" />,
   },
   {
-    id: "gpt-3.5-turbo-16k",
-    name: "GPT‑3.5 Turbo (16K)",
-    cost: "$3.00 / $4.00 per 1M tokens",
-    context: "16K tokens",
-    icon: <Aperture className="h-5 w-5" />,
-  },
-  {
     id: "gpt-3.5-turbo",
     name: "GPT‑3.5 Turbo",
     cost: "$1.50 / $2.00 per 1M tokens",
@@ -33,24 +26,10 @@ const modelOptions: ModelOption[] = [
     icon: <Aperture className="h-5 w-5" />,
   },
   {
-    id: "gpt-4-turbo-128k",
-    name: "GPT‑4 Turbo (128K)",
-    cost: "$10.00 / $30.00 per 1M tokens",
-    context: "128K tokens",
-    icon: <Aperture className="h-5 w-5" />,
-  },
-  {
-    id: "gpt-4-8k",
-    name: "GPT‑4 (8K)",
-    cost: "$30.00 / $60.00 per 1M tokens",
-    context: "8K tokens",
-    icon: <Aperture className="h-5 w-5" />,
-  },
-  {
-    id: "gpt-4-32k",
-    name: "GPT‑4 (32K)",
-    cost: "$60.00 / $120.00 per 1M tokens",
-    context: "32K tokens",
+    id: "gpt-3.5-turbo-16k",
+    name: "GPT‑3.5 Turbo (16K)",
+    cost: "$3.00 / $4.00 per 1M tokens",
+    context: "16K tokens",
     icon: <Aperture className="h-5 w-5" />,
   },
   {
@@ -58,6 +37,13 @@ const modelOptions: ModelOption[] = [
     name: "GPT‑4o (Advanced Multimodal)",
     cost: "$2.50 / $10.00 per 1M tokens",
     context: "128K tokens",
+    icon: <Aperture className="h-5 w-5" />,
+  },
+  {
+    id: "gpt-4",
+    name: "GPT‑4 (8K)",
+    cost: "$30 / $60 per 1M tokens",
+    context: "8K tokens",
     icon: <Aperture className="h-5 w-5" />,
   },
 ];
