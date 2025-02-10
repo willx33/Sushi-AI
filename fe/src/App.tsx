@@ -220,7 +220,7 @@ export default function App() {
                 alt="Sushi"
                 className="mx-auto mb-4 w-64 h-auto"
               />
-              <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
+              <h1 className="text-2xl font-bold">Welcome to Sushi AI 🍣</h1>
               <p className="text-muted-foreground">
                 Start a new chat or select an existing one.
               </p>
