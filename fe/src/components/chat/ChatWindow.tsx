@@ -6,21 +6,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ChatWindowProps {
   messages: Message[];
-  onSendMessage: (payload: { message: string; systemMessage?: string }) => void;
+  onSendMessage: (payload: { message: string; includeMemory: boolean }) => void;
   selectedModel: string;
+  includeMemory: boolean;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   messages,
   onSendMessage,
   selectedModel,
+  includeMemory,
 }) => {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   return (
@@ -34,7 +34,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <ChatInput
         onSendMessage={onSendMessage}
         model={selectedModel}
-        isFirstMessage={messages.length === 0}
+        includeMemory={includeMemory}
       />
     </div>
   );

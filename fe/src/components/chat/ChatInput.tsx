@@ -3,10 +3,10 @@ import { Button } from "../ui/button";
 import { Send } from "lucide-react";
 
 interface ChatInputProps {
-  onSendMessage: (payload: { message: string; systemMessage?: string }) => void;
+  onSendMessage: (payload: { message: string; includeMemory: boolean }) => void;
   disabled?: boolean;
   model: string;
-  isFirstMessage?: boolean;
+  includeMemory: boolean;
 }
 
 const modelCharLimits: Record<string, number> = {
@@ -21,22 +21,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   disabled,
   model,
-  isFirstMessage,
+  includeMemory,
 }) => {
   const [message, setMessage] = useState("");
-  const [systemPrompt, setSystemPrompt] = useState("");
   const limit = modelCharLimits[model] || 1000;
 
   const handleSend = () => {
     if (message.trim()) {
-      onSendMessage({
-        message,
-        systemMessage: isFirstMessage && systemPrompt.trim() ? systemPrompt : undefined,
-      });
+      onSendMessage({ message, includeMemory });
       setMessage("");
-      if (isFirstMessage) {
-        setSystemPrompt("");
-      }
     }
   };
 
@@ -49,16 +42,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="p-4 border-t border-gray-300 flex flex-col">
-      {isFirstMessage && (
-        <div className="mb-2">
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="Enter system prompt (optional)"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
-      )}
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -68,10 +51,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y overflow-auto min-h-[2.5rem] max-h-32 pr-12"
       />
       <div className="mt-2 flex justify-end items-center gap-2">
-        <div
-          className="text-xs"
-          style={{ color: message.length > limit ? "red" : "inherit" }}
-        >
+        <div className="text-xs" style={{ color: message.length > limit ? "red" : "inherit" }}>
           {message.length}/{limit}
         </div>
         <Button onClick={handleSend} disabled={disabled || !message.trim()}>

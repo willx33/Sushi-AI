@@ -1,13 +1,12 @@
-// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
-import { ApiKeyInput } from "@/components/ApiKeyInput";
 import ModelSelector from "@/components/ModelSelector";
 import { Chat, Message } from "@/types/chat";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { SettingsModal } from "@/components/SettingsModal";
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(() => {
@@ -20,6 +19,10 @@ export default function App() {
     return localStorage.getItem("selectedModel") || "gpt-4o-mini";
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [includeMemory, setIncludeMemory] = useState<boolean>(() => {
+    const stored = localStorage.getItem("includeMemory");
+    return stored ? JSON.parse(stored) : true;
+  });
 
   const { toast } = useToast();
 
@@ -42,61 +45,39 @@ export default function App() {
     setSelectedChatId(newChat.id);
   };
 
-  /**
-   * Our send-message handler now accepts an object that includes:
-   * - message: the user’s message
-   * - systemMessage (optional): the system prompt (if provided)
-   */
-  const handleSendMessage = async (payload: { message: string; systemMessage?: string }) => {
+  const handleSendMessage = async (payload: { message: string; includeMemory: boolean }) => {
     if (!selectedChatId || !apiKey) {
       toast({
         title: "Missing API Key",
-        description: "Please enter your OpenAI API key first",
+        description: "Please enter your OpenAI API key in Settings first.",
         variant: "destructive",
       });
       return;
     }
-
-    const { message, systemMessage } = payload;
+    const { message, includeMemory } = payload;
     const newUserMessage: Message = { role: "user", content: message };
 
     // Update the chat locally.
     setChats((prevChats) =>
-      prevChats.map((chat) => {
-        if (chat.id === selectedChatId) {
-          if (chat.messages.length === 0 && systemMessage && systemMessage.trim() !== "") {
-            return {
-              ...chat,
-              messages: [{ role: "system", content: systemMessage }, newUserMessage],
-              title: message.slice(0, 30),
-            };
-          } else {
-            return {
+      prevChats.map((chat) =>
+        chat.id === selectedChatId
+          ? {
               ...chat,
               messages: [...chat.messages, newUserMessage],
               title: chat.messages.length === 0 ? message.slice(0, 30) : chat.title,
-            };
-          }
-        }
-        return chat;
-      })
+            }
+          : chat
+      )
     );
 
-    // Build conversation history for the API call.
+    // Build the conversation history.
     let conversation: Message[] = [];
     const currentChat = chats.find((chat) => chat.id === selectedChatId);
-    if (currentChat) {
-      if (currentChat.messages.length === 0 && systemMessage && systemMessage.trim() !== "") {
-        conversation.push({ role: "system", content: systemMessage });
-      }
-      conversation = conversation.concat(currentChat.messages);
-      conversation.push(newUserMessage);
-    } else {
-      if (systemMessage && systemMessage.trim() !== "") {
-        conversation.push({ role: "system", content: systemMessage });
-      }
-      conversation.push(newUserMessage);
+    if (includeMemory && currentChat && currentChat.messages.length > 0) {
+      // Include only the last message from previous conversation.
+      conversation.push(currentChat.messages[currentChat.messages.length - 1]);
     }
+    conversation.push(newUserMessage);
 
     try {
       const response = await fetch("/api/chat", {
@@ -133,6 +114,11 @@ export default function App() {
 
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
+  const clearChatHistory = () => {
+    setChats([]);
+    localStorage.removeItem("chats");
+  };
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar wrapper */}
@@ -143,11 +129,16 @@ export default function App() {
         >
           {sidebarOpen && (
             <>
-              <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
-              <ModelSelector
-                selectedModel={selectedModel}
-                onChange={setSelectedModel}
-              />
+              <div className="p-4 border-b">
+                <SettingsModal
+                  apiKey={apiKey}
+                  setApiKey={setApiKey}
+                  includeMemory={includeMemory}
+                  setIncludeMemory={setIncludeMemory}
+                  clearChatHistory={clearChatHistory}
+                />
+              </div>
+              <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
               <Sidebar
                 chats={chats}
                 onNewChat={handleNewChat}
@@ -161,11 +152,7 @@ export default function App() {
           onClick={() => setSidebarOpen((prev) => !prev)}
           className="absolute top-1/2 right-[-1rem] transform -translate-y-1/2 bg-card border border-gray-300 rounded-full p-1 z-10"
         >
-          {sidebarOpen ? (
-            <ChevronLeft className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
+          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       </div>
       {/* Main Chat Window */}
@@ -175,14 +162,13 @@ export default function App() {
             messages={selectedChat.messages}
             onSendMessage={handleSendMessage}
             selectedModel={selectedModel}
+            includeMemory={includeMemory}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <h1 className="text-2xl font-bold">Welcome to ChatGPT Clone</h1>
-              <p className="text-muted-foreground">
-                Start a new chat or select an existing one.
-              </p>
+              <p className="text-muted-foreground">Start a new chat or select an existing one.</p>
             </div>
           </div>
         )}
