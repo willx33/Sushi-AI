@@ -14,13 +14,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  // Initialize API key from localStorage.
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem("apiKey") || "");
-  // Set default selected model to "gpt-4o-mini" if none saved.
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     return localStorage.getItem("selectedModel") || "gpt-4o-mini";
   });
-  // State to control whether the sidebar is shown.
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { toast } = useToast();

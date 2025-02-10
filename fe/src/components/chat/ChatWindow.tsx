@@ -35,3 +35,5 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     </div>
   );
 };
+
+export default ChatWindow;
