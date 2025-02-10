@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { RadioGroup } from "@/components/ui/radio-group";
-import { Aperture, Monitor, ChevronDown } from "lucide-react";
+import { Aperture, ChevronDown } from "lucide-react";
 
 export interface ModelOption {
   id: string;
@@ -37,14 +37,14 @@ const modelOptions: ModelOption[] = [
     name: "GPT‑4 (8K)",
     cost: "$30 / $60 per 1M tokens",
     context: "8K tokens",
-    icon: <Monitor className="h-5 w-5" />,
+    icon: <Aperture className="h-5 w-5" />,
   },
   {
     id: "gpt-4o",
     name: "GPT‑4o (Full)",
     cost: "$40 / $80 per 1M tokens",
     context: "8K tokens (assumed)",
-    icon: <Monitor className="h-5 w-5" />,
+    icon: <Aperture className="h-5 w-5" />,
   },
 ];
 
@@ -53,14 +53,19 @@ interface ModelSelectorProps {
   onChange: (value: string) => void;
 }
 
-export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, onChange }) => {
+export const ModelSelector: React.FC<ModelSelectorProps> = ({
+  selectedModel,
+  onChange,
+}) => {
   useEffect(() => {
     localStorage.setItem("selectedModel", selectedModel);
   }, [selectedModel]);
 
   const [open, setOpen] = useState(false);
 
-  const currentModel = modelOptions.find((model) => model.id === selectedModel) || modelOptions[0];
+  const currentModel =
+    modelOptions.find((model) => model.id === selectedModel) ||
+    modelOptions[0];
 
   const handleSelect = (value: string) => {
     onChange(value);
