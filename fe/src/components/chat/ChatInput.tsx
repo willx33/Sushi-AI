@@ -9,11 +9,15 @@ interface ChatInputProps {
   includeMemory: boolean;
 }
 
+// Updated character limits for each model ID.
+// (These limits are used as a heuristic to prevent overly long user messages.)
 const modelCharLimits: Record<string, number> = {
   "gpt-4o-mini": 1090,
   "gpt-3.5-turbo-16k": 6400,
   "gpt-3.5-turbo": 2560,
-  "gpt-4": 2048,
+  "gpt-4-turbo-128k": 4096,
+  "gpt-4-8k": 2048,
+  "gpt-4-32k": 3072,
   "gpt-4o": 2048,
 };
 

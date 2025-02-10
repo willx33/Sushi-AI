@@ -23,7 +23,7 @@ export default function App() {
     const stored = localStorage.getItem("includeMemory");
     return stored ? JSON.parse(stored) : true;
   });
-  // New state for dark mode – default is "on" (true)
+  // Dark mode state (defaulting to on)
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const stored = localStorage.getItem("darkMode");
     return stored ? JSON.parse(stored) : true;
@@ -39,7 +39,6 @@ export default function App() {
     localStorage.setItem("selectedModel", selectedModel);
   }, [selectedModel]);
 
-  // Update the document's dark mode based on state
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add("dark");

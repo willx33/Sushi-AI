@@ -79,7 +79,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   }}
                   className={cn(
                     "w-10 h-6 flex items-center rounded-full p-1 transition-colors",
-                    includeMemory ? "bg-primary" : "bg-gray-300"
+                    includeMemory
+                      ? "bg-primary dark:bg-gray-700"
+                      : "bg-gray-300 dark:bg-gray-600"
                   )}
                 >
                   <div
@@ -105,7 +107,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   }}
                   className={cn(
                     "w-10 h-6 flex items-center rounded-full p-1 transition-colors",
-                    darkMode ? "bg-primary" : "bg-gray-300"
+                    darkMode
+                      ? "bg-primary dark:bg-gray-700"
+                      : "bg-gray-300 dark:bg-gray-600"
                   )}
                 >
                   <div
