@@ -13,32 +13,16 @@ function maskApiKey(key: string): string {
   return `${key.substring(0, 4)}••••••${key.substring(key.length - 4)}`;
 }
 
-export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
-  onSave,
-  initialKey,
-}) => {
+export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onSave, initialKey }) => {
   const [apiKey, setApiKey] = React.useState(initialKey || "");
   const [isEditing, setIsEditing] = React.useState(!initialKey);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (apiKey.trim()) {
-      try {
-        // Use a relative URL so the Vite proxy (in vite.config.ts) handles it.
-        const response = await fetch("/api/apikey", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey }),
-        });
-        const result = await response.json();
-        if (result.success) {
-          onSave(apiKey);
-          setIsEditing(false);
-        } else {
-          console.error("Failed to save API key");
-        }
-      } catch (error) {
-        console.error("Error saving API key:", error);
-      }
+      // Save the API key to the browser's cache (localStorage)
+      localStorage.setItem("apiKey", apiKey);
+      onSave(apiKey);
+      setIsEditing(false);
     }
   };
 
@@ -49,7 +33,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
           <Input
             type="password"
             value={apiKey}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
+            onChange={(e) => setApiKey(e.target.value)}
             placeholder="Enter your API key"
             className="max-w-md"
           />

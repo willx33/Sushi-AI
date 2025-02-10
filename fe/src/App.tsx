@@ -1,9 +1,8 @@
-// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
-import { ModelSelector } from "@/components/ModelSelector";
+import ModelSelector from "@/components/ModelSelector";
 import { Chat, Message } from "@/types/chat";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,29 +13,21 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  const [apiKey, setApiKey] = useState<string>("");
-  const [selectedModel, setSelectedModel] = useState<string>(
-    () => localStorage.getItem("selectedModel") || "gpt-3.5-turbo"
-  );
+  // Initialize apiKey from localStorage
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem("apiKey") || "");
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    return localStorage.getItem("selectedModel") || "gpt-3.5-turbo";
+  });
 
   const { toast } = useToast();
 
-  // Persist chats in local storage
   useEffect(() => {
     localStorage.setItem("chats", JSON.stringify(chats));
   }, [chats]);
 
-  // Fetch any saved API key from the backend on mount
   useEffect(() => {
-    fetch("/api/apikey")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.apiKey) {
-          setApiKey(data.apiKey);
-        }
-      })
-      .catch((err) => console.error(err));
-  }, []);
+    localStorage.setItem("selectedModel", selectedModel);
+  }, [selectedModel]);
 
   const handleNewChat = () => {
     const newChat: Chat = {
@@ -74,13 +65,13 @@ export default function App() {
     );
 
     try {
+      // Include apiKey in the request body so that the server can use it.
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // Send the selected model in the API request
-        body: JSON.stringify({ message: content, model: selectedModel }),
+        body: JSON.stringify({ message: content, model: selectedModel, apiKey }),
       });
 
       if (!response.ok) {
@@ -118,7 +109,6 @@ export default function App() {
     <div className="flex h-screen bg-background">
       <div className="w-1/4 bg-card border-r">
         <ApiKeyInput onSave={setApiKey} initialKey={apiKey} />
-        {/* New ModelSelector component */}
         <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
         <Sidebar
           chats={chats}
