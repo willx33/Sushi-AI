@@ -1,3 +1,4 @@
+// fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
@@ -14,7 +15,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem("apiKey") || "");
+  const [apiKey, setApiKey] = useState<string>(
+    () => localStorage.getItem("apiKey") || ""
+  );
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     return localStorage.getItem("selectedModel") || "gpt-4o-mini";
   });
@@ -41,7 +44,13 @@ export default function App() {
     setSelectedChatId(newChat.id);
   };
 
-  const handleSendMessage = async (content: string) => {
+  /**
+   * Updated send message handler:
+   * - Accepts a payload with { message, systemMessage? }.
+   * - If the current chat is new (no messages yet) and a system prompt is provided,
+   *   it adds the system prompt (role "system") before the user’s message.
+   */
+  const handleSendMessage = async (payload: { message: string; systemMessage?: string }) => {
     if (!selectedChatId || !apiKey) {
       toast({
         title: "Missing API Key",
@@ -50,28 +59,55 @@ export default function App() {
       });
       return;
     }
+    
+    const { message, systemMessage } = payload;
+    const newUserMessage: Message = { role: "user", content: message };
 
-    const newMessage: Message = { role: "user", content };
-
+    // Update the chat locally.
     setChats((prevChats) =>
-      prevChats.map((chat) =>
-        chat.id === selectedChatId
-          ? {
+      prevChats.map((chat) => {
+        if (chat.id === selectedChatId) {
+          if (chat.messages.length === 0 && systemMessage && systemMessage.trim() !== "") {
+            return {
               ...chat,
-              messages: [...chat.messages, newMessage],
-              title: chat.messages.length === 0 ? content.slice(0, 30) : chat.title,
-            }
-          : chat
-      )
+              messages: [{ role: "system", content: systemMessage }, newUserMessage],
+              title: message.slice(0, 30),
+            };
+          } else {
+            return {
+              ...chat,
+              messages: [...chat.messages, newUserMessage],
+              title: chat.messages.length === 0 ? message.slice(0, 30) : chat.title,
+            };
+          }
+        }
+        return chat;
+      })
     );
+
+    // Build conversation history to send to the backend.
+    let conversation: Message[] = [];
+    const currentChat = chats.find((chat) => chat.id === selectedChatId);
+    if (currentChat) {
+      // For a new chat, if a system prompt was provided, include it.
+      if (currentChat.messages.length === 0 && systemMessage && systemMessage.trim() !== "") {
+        conversation.push({ role: "system", content: systemMessage });
+      }
+      conversation = conversation.concat(currentChat.messages);
+      conversation.push(newUserMessage);
+    } else {
+      // Fallback: if no chat found, simply include the user message (and system prompt if provided)
+      if (systemMessage && systemMessage.trim() !== "") {
+        conversation.push({ role: "system", content: systemMessage });
+      }
+      conversation.push(newUserMessage);
+    }
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: content, model: selectedModel, apiKey }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ history: conversation, model: selectedModel, apiKey }),
       });
 
       if (!response.ok) {
@@ -81,10 +117,7 @@ export default function App() {
       }
 
       const data = await response.json();
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.response,
-      };
+      const assistantMessage: Message = { role: "assistant", content: data.response };
 
       setChats((prevChats) =>
         prevChats.map((chat) =>

@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ChatWindowProps {
   messages: Message[];
-  onSendMessage: (message: string) => void;
+  onSendMessage: (payload: { message: string; systemMessage?: string }) => void;
   selectedModel: string;
 }
 
@@ -31,7 +31,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         ))}
         <div ref={messagesEndRef} />
       </ScrollArea>
-      <ChatInput onSendMessage={onSendMessage} model={selectedModel} />
+      <ChatInput
+        onSendMessage={onSendMessage}
+        model={selectedModel}
+        isFirstMessage={messages.length === 0}
+      />
     </div>
   );
 };

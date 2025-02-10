@@ -1,6 +1,6 @@
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-import axios from 'axios';
+import express, { Request, Response } from "express";
+import cors from "cors";
+import axios from "axios";
 
 const app = express();
 app.use(cors());
@@ -8,7 +8,6 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
-// Define the type for the OpenAI API response
 type OpenAIResponse = {
   id: string;
   object: string;
@@ -24,27 +23,26 @@ type OpenAIResponse = {
   }[];
 };
 
-// ----- Chat Endpoint -----
-// Expects { message, model, apiKey } in the request body.
 app.post('/api/chat', async (req: Request, res: Response) => {
-  const { message, model = 'gpt-3.5-turbo', apiKey } = req.body;
+  // Expect history to be an array of messages from the frontend
+  const { history, model = 'gpt-3.5-turbo', apiKey } = req.body;
 
   if (!apiKey) {
     return res.status(400).json({ error: 'API key not provided' });
   }
+  if (!Array.isArray(history) || history.length === 0) {
+    return res.status(400).json({ error: 'Conversation history not provided' });
+  }
 
   console.log("Making request to OpenAI with model:", model);
-  console.log("User message:", message);
+  console.log("Conversation history:", history);
 
   try {
     const openAiResponse = await axios.post<OpenAIResponse>(
       'https://api.openai.com/v1/chat/completions',
       {
         model,
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          { role: 'user', content: message }
-        ],
+        messages: history,
       },
       {
         headers: {

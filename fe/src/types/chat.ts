@@ -1,11 +1,13 @@
+// fe/src/types/chat.ts
+
 export interface Message {
-    role: 'assistant' | 'user';
-    content: string;
-  }
-  
-  export interface Chat {
-    id: string;
-    title: string;
-    messages: Message[];
-    createdAt: Date;
-  }
+  role: "assistant" | "user" | "system";
+  content: string;
+}
+
+export interface Chat {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+}
