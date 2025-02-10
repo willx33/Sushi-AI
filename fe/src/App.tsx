@@ -15,9 +15,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  const [apiKey, setApiKey] = useState<string>(
-    () => localStorage.getItem("apiKey") || ""
-  );
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem("apiKey") || "");
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     return localStorage.getItem("selectedModel") || "gpt-4o-mini";
   });
@@ -45,10 +43,9 @@ export default function App() {
   };
 
   /**
-   * Updated send message handler:
-   * - Accepts a payload with { message, systemMessage? }.
-   * - If the current chat is new (no messages yet) and a system prompt is provided,
-   *   it adds the system prompt (role "system") before the user’s message.
+   * Our send-message handler now accepts an object that includes:
+   * - message: the user’s message
+   * - systemMessage (optional): the system prompt (if provided)
    */
   const handleSendMessage = async (payload: { message: string; systemMessage?: string }) => {
     if (!selectedChatId || !apiKey) {
@@ -59,7 +56,7 @@ export default function App() {
       });
       return;
     }
-    
+
     const { message, systemMessage } = payload;
     const newUserMessage: Message = { role: "user", content: message };
 
@@ -85,18 +82,16 @@ export default function App() {
       })
     );
 
-    // Build conversation history to send to the backend.
+    // Build conversation history for the API call.
     let conversation: Message[] = [];
     const currentChat = chats.find((chat) => chat.id === selectedChatId);
     if (currentChat) {
-      // For a new chat, if a system prompt was provided, include it.
       if (currentChat.messages.length === 0 && systemMessage && systemMessage.trim() !== "") {
         conversation.push({ role: "system", content: systemMessage });
       }
       conversation = conversation.concat(currentChat.messages);
       conversation.push(newUserMessage);
     } else {
-      // Fallback: if no chat found, simply include the user message (and system prompt if provided)
       if (systemMessage && systemMessage.trim() !== "") {
         conversation.push({ role: "system", content: systemMessage });
       }
