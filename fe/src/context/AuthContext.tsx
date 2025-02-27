@@ -20,81 +20,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false to avoid loading screen
 
   useEffect(() => {
-    // For development, create a mock user for easy testing
-    const isDevelopment = true; // Enable for easier development testing
-
-    if (isDevelopment) {
-      // Mock user for development with a proper UUID format
-      const mockUser = {
-        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', // Valid UUID format for PostgreSQL
-        email: 'dev@example.com',
-        app_metadata: {},
-        user_metadata: {},
-        aud: 'authenticated',
-        created_at: new Date().toISOString()
-      } as User;
-      
-      const mockSession = {
-        user: mockUser,
-        access_token: 'mock-token',
-        refresh_token: 'mock-refresh',
-        expires_at: Date.now() + 3600
-      } as Session;
-
-      // Create profile ID that matches the user ID to match Supabase schema
-      const mockProfile: Profile = {
-        id: mockUser.id, // Same as user ID
-        user_id: mockUser.id, // Same as user ID
-        openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-        anthropicApiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
-        googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-        mistralApiKey: import.meta.env.VITE_MISTRAL_API_KEY || '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        preferredLanguage: 'en',
-        theme: 'system'
-      };
-
-      setUser(mockUser);
-      setSession(mockSession);
-      setProfile(mockProfile);
-      setLoading(false);
-      return;
-    }
-
-    // Normal authentication flow for production
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        getProfile(session.user.id).then(profile => {
-          setProfile(profile);
-        });
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    const initAuth = async () => {
+      try {
+        console.log('Initializing user authentication...');
+        const { data: { session } } = await supabase.auth.getSession();
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const fetchedProfile = await getProfile(session.user.id);
-          if (!fetchedProfile) {
-            // Create profile if it doesn't exist
-            const newProfile = await createProfile(session.user.id, {});
-            setProfile(newProfile);
-          } else {
-            setProfile(fetchedProfile);
+          console.log('Found user session:', session.user.id);
+          try {
+            // Get or create profile
+            let profile = await getProfile(session.user.id);
+            
+            if (!profile) {
+              console.log('No profile found, creating one...');
+              profile = await createProfile(session.user.id, {});
+            }
+            
+            setProfile(profile);
+          } catch (profileError) {
+            console.error('Error handling profile:', profileError);
           }
+        } else {
+          console.log('No active session found');
         }
+      } catch (error) {
+        console.error('Error during auth initialization:', error);
+      }
+    };
+    
+    // Initialize authentication without setting loading
+    initAuth();
 
-        setLoading(false);
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event);
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          return;
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          console.log('User session in auth change:', session.user.id);
+          try {
+            let profile = await getProfile(session.user.id);
+            
+            if (!profile) {
+              console.log('No profile found in auth change, creating one');
+              profile = await createProfile(session.user.id, {});
+            }
+            
+            setProfile(profile);
+          } catch (error) {
+            console.error('Error handling profile in auth change:', error);
+          }
+        } else {
+          setProfile(null);
+        }
       }
     );
 
@@ -122,7 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Clear React state immediately
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    
+    // Then handle Supabase signOut - but state is already cleared
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   const value = {

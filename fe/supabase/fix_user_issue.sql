@@ -1,42 +1,41 @@
--- This script creates a development user in the Supabase auth.users table
--- Run this in your Supabase SQL editor
+-- This script fixes the user foreign key constraint issues
+-- Run this script to ensure the development user exists in auth.users before other tables
 
 -- First, ensure UUID extension is available
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- IMPORTANT: Fix the foreign key constraint issues by first creating the user
+-- Step 1: Check if the user exists in auth.users and create if not
 DO $$
 BEGIN
-  -- Check if the user exists in auth.users
+  -- Use a more complete insert that works with Supabase Auth requirements
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid) THEN
-    -- Insert dev user into auth.users table
     INSERT INTO auth.users (
       id,
       email,
+      role,
       raw_app_meta_data,
       raw_user_meta_data,
       is_super_admin,
       created_at,
       updated_at,
       last_sign_in_at,
-      email_confirmed_at,
-      role
+      email_confirmed_at
     ) VALUES (
       'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid,
       'dev@example.com',
+      'authenticated',
       '{"provider":"email","providers":["email"]}',
       '{}',
       FALSE,
       NOW(),
       NOW(),
       NOW(),
-      NOW(),
-      'authenticated'
+      NOW()
     );
   END IF;
 END $$;
 
--- Create a profile for the dev user if it doesn't exist
+-- Step 2: Create profile if it doesn't exist
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid) THEN
@@ -65,12 +64,12 @@ BEGIN
   END IF;
 END $$;
 
--- Create a home workspace for the dev user if it doesn't exist
+-- Step 3: Create home workspace if needed
 DO $$
 DECLARE
   workspace_id uuid;
 BEGIN
-  -- First check if a home workspace exists
+  -- Check if home workspace exists
   SELECT id INTO workspace_id 
   FROM public.workspaces 
   WHERE user_id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid 
@@ -79,8 +78,6 @@ BEGIN
   
   -- If no workspace found, create one
   IF workspace_id IS NULL THEN
-    workspace_id := uuid_generate_v4();
-    
     INSERT INTO public.workspaces (
       id,
       user_id,
@@ -95,7 +92,7 @@ BEGIN
       updated_at
     )
     VALUES (
-      workspace_id,
+      uuid_generate_v4(),
       'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid,
       'Home',
       'Default workspace',
@@ -107,29 +104,10 @@ BEGIN
       NOW(),
       NOW()
     );
-    
-    -- Create a sample chat in this workspace
-    INSERT INTO public.chats (
-      id,
-      user_id,
-      workspace_id,
-      name,
-      model,
-      prompt,
-      temperature,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      uuid_generate_v4(),
-      'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid,
-      workspace_id,
-      'Welcome Chat',
-      'gpt-4o-mini',
-      'You are a helpful assistant.',
-      0.7,
-      NOW(),
-      NOW()
-    );
   END IF;
 END $$;
+
+-- Verify the user exists in all required tables
+SELECT 'User check:' as status, EXISTS (SELECT 1 FROM auth.users WHERE id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid) as exists;
+SELECT 'Profile check:' as status, EXISTS (SELECT 1 FROM profiles WHERE id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid) as exists;
+SELECT 'Workspace check:' as status, EXISTS (SELECT 1 FROM workspaces WHERE user_id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid AND is_home = true) as exists;

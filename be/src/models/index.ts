@@ -35,24 +35,91 @@ export async function generateResponse(
 ): Promise<string> {
   const provider = getProviderFromModel(model);
   
+  // Check for development fallback keys - broader matching for all dev keys
+  const isDevFallbackKey = (key: string) => {
+    return key && (
+      key.includes('fallback-development-key') || 
+      key.startsWith('sk-fallback') ||
+      key === 'DEVELOPMENT_MODE_API_KEY' ||
+      key.includes('sk-ant-fallback') ||
+      key.includes('AIza-fallback') ||
+      key.includes('sk-default-dev-key') ||
+      key.includes('dev-key-for-testing')
+    );
+  };
+  
   switch (provider) {
     case 'openai':
-      if (!apiKeys.openai) {
-        throw new Error('OpenAI API key not provided');
+      // Check if we have a server-side fallback key
+      const serverApiKey = process.env.OPENAI_API_KEY;
+      
+      // Use client key, server key, or fail
+      if (!apiKeys.openai && !serverApiKey) {
+        console.log('No OpenAI API key provided (client or server)');
+        
+        // Return a mock response in this case
+        return "This is a development mode response. Please provide a valid OpenAI API key in settings to use the actual API. Your message was: " + 
+          (messages.find(m => m.role === 'user')?.content || 'No user message found');
       }
-      return generateOpenAIResponse(messages as OpenAIMessage[], model, apiKeys.openai);
+      
+      // For dev fallback keys, return a mock response instead of making API call
+      if (isDevFallbackKey(apiKeys.openai)) {
+        console.log('Using development fallback for OpenAI API call');
+        return "This is a development mode response using a placeholder API key. Your message was: " + 
+          (messages.find(m => m.role === 'user')?.content || 'No user message found');
+      }
+      
+      // Use the client key if provided, otherwise use the server key
+      const effectiveKey = apiKeys.openai || serverApiKey;
+      return generateOpenAIResponse(messages as OpenAIMessage[], model, effectiveKey as string);
     
     case 'anthropic':
-      if (!apiKeys.anthropic) {
-        throw new Error('Anthropic API key not provided');
+      // Check if we have a server-side fallback key
+      const serverAnthropicKey = process.env.ANTHROPIC_API_KEY;
+      
+      // Use client key, server key, or fail
+      if (!apiKeys.anthropic && !serverAnthropicKey) {
+        console.log('No Anthropic API key provided (client or server)');
+        
+        // Return a mock response in this case
+        return "This is a development mode response. Please provide a valid Anthropic API key in settings to use the actual API. Your message was: " + 
+          (messages.find(m => m.role === 'user')?.content || 'No user message found');
       }
-      return generateAnthropicResponse(messages as AnthropicMessage[], model, apiKeys.anthropic);
+      
+      // For dev fallback keys, return a mock response instead of making API call
+      if (isDevFallbackKey(apiKeys.anthropic)) {
+        console.log('Using development fallback for Anthropic API call');
+        return "This is a development mode response using a placeholder API key. Your message was: " + 
+          (messages.find(m => m.role === 'user')?.content || 'No user message found');
+      }
+      
+      // Use the client key if provided, otherwise use the server key
+      const effectiveAnthropicKey = apiKeys.anthropic || serverAnthropicKey;
+      return generateAnthropicResponse(messages as AnthropicMessage[], model, effectiveAnthropicKey as string);
     
     case 'google':
-      if (!apiKeys.google) {
-        throw new Error('Google API key not provided');
+      // Check if we have a server-side fallback key
+      const serverGoogleKey = process.env.GOOGLE_API_KEY;
+      
+      // Use client key, server key, or fail
+      if (!apiKeys.google && !serverGoogleKey) {
+        console.log('No Google API key provided (client or server)');
+        
+        // Return a mock response in this case
+        return "This is a development mode response. Please provide a valid Google API key in settings to use the actual API. Your message was: " + 
+          (messages.find(m => m.role === 'user')?.content || 'No user message found');
       }
-      return generateGoogleResponse(messages as GoogleMessage[], model, apiKeys.google);
+      
+      // For dev fallback keys, return a mock response instead of making API call
+      if (isDevFallbackKey(apiKeys.google)) {
+        console.log('Using development fallback for Google API call');
+        return "This is a development mode response using a placeholder API key. Your message was: " + 
+          (messages.find(m => m.role === 'user')?.content || 'No user message found');
+      }
+      
+      // Use the client key if provided, otherwise use the server key
+      const effectiveGoogleKey = apiKeys.google || serverGoogleKey;
+      return generateGoogleResponse(messages as GoogleMessage[], model, effectiveGoogleKey as string);
     
     default:
       throw new Error(`Unsupported model provider: ${provider}`);
@@ -63,8 +130,27 @@ export async function generateResponse(
 export function getAvailableModels(apiKeys: Record<string, string>): { id: string; name: string; provider: ModelProvider }[] {
   const models: { id: string; name: string; provider: ModelProvider }[] = [];
   
+  // Check for development fallback keys - broader matching for all dev keys
+  const isDevFallbackKey = (key: string) => {
+    return key && (
+      key.includes('fallback-development-key') || 
+      key.startsWith('sk-fallback') ||
+      key === 'DEVELOPMENT_MODE_API_KEY' ||
+      key.includes('sk-ant-fallback') ||
+      key.includes('AIza-fallback') ||
+      key.includes('sk-default-dev-key') ||
+      key.includes('dev-key-for-testing')
+    );
+  };
+  
+  // Check if we're in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' || 
+                        isDevFallbackKey(apiKeys.openai) || 
+                        isDevFallbackKey(apiKeys.anthropic) ||
+                        isDevFallbackKey(apiKeys.google);
+  
   // OpenAI models
-  if (apiKeys.openai) {
+  if (apiKeys.openai || isDevelopment) {
     models.push(
       { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai' },
@@ -74,7 +160,7 @@ export function getAvailableModels(apiKeys: Record<string, string>): { id: strin
   }
   
   // Anthropic models
-  if (apiKeys.anthropic) {
+  if (apiKeys.anthropic || isDevelopment) {
     models.push(
       { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', provider: 'anthropic' },
       { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet', provider: 'anthropic' },
@@ -83,7 +169,7 @@ export function getAvailableModels(apiKeys: Record<string, string>): { id: strin
   }
   
   // Google models
-  if (apiKeys.google) {
+  if (apiKeys.google || isDevelopment) {
     models.push(
       { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'google' },
       { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'google' },
