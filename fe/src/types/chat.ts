@@ -1,6 +1,11 @@
+// fe/src/types/chat.ts
 export interface Message {
-  role: "assistant" | "user" | "system";
+  id?: string;
+  role: 'system' | 'user' | 'assistant' | 'function';
   content: string;
+  model?: string;
+  createdAt?: Date;
+  imagePaths?: string[];
 }
 
 export interface Chat {
@@ -8,4 +13,21 @@ export interface Chat {
   title: string;
   messages: Message[];
   createdAt: Date;
+  updatedAt?: Date;
+  workspaceId?: string;
+  folderId?: string;
+  model?: string;
+  systemPrompt?: string;
+  temperature?: number;
+  contextLength?: number;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  description?: string;
+  workspaceId: string;
+  type: 'chats';
+  createdAt: Date;
+  updatedAt?: Date;
 }

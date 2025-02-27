@@ -4,10 +4,18 @@ import { Message } from "@/types/chat";
 
 interface ChatMessageProps {
   message: Message;
+  isStreaming?: boolean;
+  streamingContent?: string;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ 
+  message, 
+  isStreaming = false,
+  streamingContent = ""
+}) => {
   const isUser = message.role === "user";
+  const content = isStreaming ? streamingContent : message.content;
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} p-2`}>
       <div
@@ -18,11 +26,17 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               : "bg-card text-card-foreground shadow-[0_0_0_1px_rgba(128,0,128,0.1)]"
           }`}
       >
-        <div className="text-sm mb-1 font-medium">
+        <div className="text-sm mb-1 font-medium flex items-center">
           {isUser ? "You" : "Assistant"}
+          {isStreaming && !isUser && (
+            <span className="ml-2 inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+          )}
         </div>
         <div className="text-sm whitespace-pre-wrap">
-          {message.content}
+          {content}
+          {isStreaming && !isUser && !content && (
+            <span className="inline-block w-2 h-2 bg-gray-300 rounded-full animate-pulse"></span>
+          )}
         </div>
       </div>
     </div>

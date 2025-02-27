@@ -1,63 +1,162 @@
 // fe/src/App.tsx
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
+import { Navbar } from "@/components/Layout/Navbar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import ModelSelector from "@/components/ModelSelector";
 import { Chat, Message } from "@/types/chat";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { SettingsModal } from "@/components/SettingsModal";
+import { useAuth } from "@/context/AuthContext";
+import { 
+  getChats, 
+  createChat, 
+  getMessages, 
+  createMessage, 
+  getHomeWorkspace 
+} from "@/db";
 
 export default function App() {
-  const [chats, setChats] = useState<Chat[]>(() => {
-    const saved = localStorage.getItem("chats");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const { user, profile } = useAuth();
+  const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string>();
-  const [apiKey, setApiKey] = useState<string>(
-    () => localStorage.getItem("apiKey") || ""
-  );
-  const [selectedModel, setSelectedModel] = useState<string>(() => {
-    return localStorage.getItem("selectedModel") || "gpt-4o-mini";
-  });
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [includeMemory, setIncludeMemory] = useState<boolean>(() => {
-    const stored = localStorage.getItem("includeMemory");
-    return stored ? JSON.parse(stored) : true;
-  });
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const stored = localStorage.getItem("darkMode");
-    return stored ? JSON.parse(stored) : true;
-  });
+  const [includeMemory, setIncludeMemory] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+  const [homeWorkspaceId, setHomeWorkspaceId] = useState<string>("");
 
   const { toast } = useToast();
 
+  // Load initial data
   useEffect(() => {
-    localStorage.setItem("chats", JSON.stringify(chats));
-  }, [chats]);
+    if (user) {
+      // Get home workspace and chats
+      const fetchInitialData = async () => {
+        setLoading(true);
+        try {
+          // Get home workspace
+          const workspace = await getHomeWorkspace(user.id);
+          if (workspace) {
+            setHomeWorkspaceId(workspace.id);
+            
+            // Get chats for this workspace
+            const userChats = await getChats(user.id, workspace.id);
+            setChats(userChats);
+          } else {
+            // Fallback to temp workspace ID if DB operations fail
+            console.log("No home workspace found, using temporary one");
+            const tempWorkspaceId = "temp-workspace-123";
+            setHomeWorkspaceId(tempWorkspaceId);
+            setChats([]);
+          }
+          
+          setSelectedChatId(undefined); // Make sure no chat is selected initially
+          
+        } catch (error) {
+          console.error("Error fetching initial data:", error);
+          // Fallback for development
+          const tempWorkspaceId = "temp-workspace-123";
+          setHomeWorkspaceId(tempWorkspaceId);
+          setChats([]);
+        } finally {
+          setLoading(false);
+        }
+      };
 
-  useEffect(() => {
-    localStorage.setItem("selectedModel", selectedModel);
-  }, [selectedModel]);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+      fetchInitialData();
     }
-  }, [darkMode]);
+  }, [user, profile]);
 
-  const handleNewChat = () => {
-    const newChat: Chat = {
-      id: Date.now().toString(),
-      title: "New Chat",
-      messages: [],
-      createdAt: new Date(),
-    };
-    setChats([newChat, ...chats]);
-    setSelectedChatId(newChat.id);
+  const handleNewChat = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Cannot create a new chat at this time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const workspaceId = homeWorkspaceId || "temp-workspace-id";
+      
+      // Create a new chat via the database
+      const newChat = await createChat(
+        user.id, 
+        workspaceId, 
+        {
+          title: "New Chat",
+          model: selectedModel || "gpt-4o-mini",
+          prompt: "You are a helpful assistant.",
+          temperature: 0.7,
+          contextLength: 4000
+        }
+      );
+      
+      console.log("Creating new chat:", newChat);
+      
+      if (newChat) {
+        // Update state with the newly created chat
+        setChats(prevChats => [newChat, ...prevChats]);
+        setSelectedChatId(newChat.id);
+        
+        // Toast success message
+        toast({
+          title: "Success",
+          description: "New chat created successfully",
+        });
+      } else {
+        // Fallback to client-side chat creation if DB operation fails
+        const newChatId = crypto.randomUUID();
+        const clientChat: Chat = {
+          id: newChatId,
+          title: "New Chat",
+          messages: [],
+          createdAt: new Date(),
+          model: selectedModel || "gpt-4o-mini",
+          workspaceId: workspaceId,
+          systemPrompt: "You are a helpful assistant.",
+          temperature: 0.7
+        };
+        
+        setChats(prevChats => [clientChat, ...prevChats]);
+        setSelectedChatId(clientChat.id);
+        
+        toast({
+          title: "Warning",
+          description: "Created chat in memory only (database operation failed)",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Error creating new chat:", error);
+      
+      // Fallback to client-side chat creation on error
+      const newChatId = crypto.randomUUID();
+      const workspaceId = homeWorkspaceId || "temp-workspace-id";
+      
+      const fallbackChat: Chat = {
+        id: newChatId,
+        title: "New Chat",
+        messages: [],
+        createdAt: new Date(),
+        model: selectedModel || "gpt-4o-mini",
+        workspaceId: workspaceId,
+        systemPrompt: "You are a helpful assistant.",
+        temperature: 0.7
+      };
+      
+      setChats(prevChats => [fallbackChat, ...prevChats]);
+      setSelectedChatId(fallbackChat.id);
+      
+      toast({
+        title: "Warning",
+        description: "Created chat in memory only (database error occurred)",
+        variant: "default",
+      });
+    }
   };
 
   const handleSendMessage = async (payload: {
@@ -65,22 +164,25 @@ export default function App() {
     includeMemory: boolean;
     systemMessage?: string;
   }) => {
-    if (!selectedChatId || !apiKey) {
+    if (!selectedChatId || !user) {
       toast({
-        title: "Missing API Key",
-        description: "Please enter your OpenAI API key in Settings first.",
+        title: "Error",
+        description: "Cannot send message at this time.",
         variant: "destructive",
       });
       return;
     }
+
     const { message, includeMemory, systemMessage } = payload;
     const newUserMessage: Message = { role: "user", content: message };
 
+    // Find current chat
     const currentChat = chats.find((chat) => chat.id === selectedChatId) || {
       messages: [],
     };
     const isNewChat = currentChat.messages.length === 0;
 
+    // Prepare conversation history
     let conversation: Message[] = [];
     if (includeMemory) {
       if (isNewChat) {
@@ -102,27 +204,50 @@ export default function App() {
         : [newUserMessage];
     }
 
-    setChats((prevChats) =>
-      prevChats.map((chat) =>
-        chat.id === selectedChatId
-          ? {
-              ...chat,
-              messages: isNewChat
-                ? systemMessage?.trim()
-                  ? [{ role: "system", content: systemMessage }, newUserMessage]
-                  : [newUserMessage]
-                : [...chat.messages, newUserMessage],
-              title: isNewChat ? message.slice(0, 30) : chat.title,
-            }
-          : chat
-      )
+    // Update local state with user message
+    const updatedChats = chats.map((chat) =>
+      chat.id === selectedChatId
+        ? {
+            ...chat,
+            messages: isNewChat
+              ? systemMessage?.trim()
+                ? [{ role: "system", content: systemMessage }, newUserMessage]
+                : [newUserMessage]
+              : [...chat.messages, newUserMessage],
+            title: isNewChat ? message.slice(0, 30) : chat.title,
+          }
+        : chat
     );
+    setChats(updatedChats);
 
+    // Save user message to the database
+    if (user) {
+      try {
+        await createMessage(
+          user.id, 
+          selectedChatId, 
+          newUserMessage, 
+          isNewChat ? 0 : currentChat.messages.length
+        );
+      } catch (error) {
+        console.error("Failed to save message, but continuing with chat:", error);
+        // Continue anyway for development
+      }
+    }
+
+    // Send request to backend API
     try {
-      const response = await fetch("/api/chat", {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: conversation, model: selectedModel, apiKey }),
+        body: JSON.stringify({ 
+          history: conversation, 
+          model: selectedModel, 
+          apiKey: profile?.openaiApiKey,
+          anthropicApiKey: profile?.anthropicApiKey,
+          googleApiKey: profile?.googleApiKey
+        }),
       });
 
       if (!response.ok) {
@@ -132,8 +257,13 @@ export default function App() {
       }
 
       const data = await response.json();
-      const assistantMessage: Message = { role: "assistant", content: data.response };
+      const assistantMessage: Message = { 
+        role: "assistant", 
+        content: data.response,
+        model: selectedModel 
+      };
 
+      // Update local state with assistant message
       setChats((prevChats) =>
         prevChats.map((chat) =>
           chat.id === selectedChatId
@@ -141,10 +271,25 @@ export default function App() {
             : chat
         )
       );
+
+      // Save assistant message to the database
+      if (user) {
+        try {
+          await createMessage(
+            user.id, 
+            selectedChatId, 
+            assistantMessage, 
+            isNewChat ? 1 : currentChat.messages.length + 1
+          );
+        } catch (error) {
+          console.error("Failed to save assistant message, but continuing with chat:", error);
+          // Continue anyway for development
+        }
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "There was an issue communicating with the OpenAI API.",
+        description: "There was an issue communicating with the API.",
         variant: "destructive",
       });
       console.error("Error fetching response:", error);
@@ -153,80 +298,70 @@ export default function App() {
 
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
 
-  const clearChatHistory = () => {
-    setChats([]);
-    localStorage.removeItem("chats");
-  };
-
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar wrapper */}
-      <div className="relative">
-        <div
-          className="transition-all duration-300 bg-card border-r h-full overflow-y-auto"
-          style={{ width: sidebarOpen ? "16rem" : "2rem" }}
-        >
-          {sidebarOpen && (
-            <>
-              {/* Sidebar Header */}
-              <div className="flex items-center border-b px-4 py-2">
-                <img src="/sush.png" alt="Mini Sushi" className="w-7 h-7 mr-3.5" />
-                <div className="flex-grow" />
-                <SettingsModal
-                  apiKey={apiKey}
-                  setApiKey={setApiKey}
-                  includeMemory={includeMemory}
-                  setIncludeMemory={setIncludeMemory}
-                  clearChatHistory={clearChatHistory}
-                  darkMode={darkMode}
-                  setDarkMode={setDarkMode}
+    <div className="flex flex-col h-screen bg-background">
+      <Navbar />
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar wrapper */}
+        <div className="relative">
+          <div
+            className="transition-all duration-300 bg-card border-r h-full overflow-y-auto"
+            style={{ width: sidebarOpen ? "16rem" : "2rem" }}
+          >
+            {sidebarOpen && (
+              <>
+                <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
+                <Sidebar
+                  chats={chats}
+                  onNewChat={handleNewChat}
+                  onSelectChat={setSelectedChatId}
+                  selectedChatId={selectedChatId}
                 />
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            className="absolute top-1/2 right-[-1rem] transform -translate-y-1/2 bg-card border border-gray-300 rounded-full p-1 z-10"
+          >
+            {sidebarOpen ? (
+              <ChevronLeft className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+        {/* Main Chat Window */}
+        <div className="flex-1 overflow-hidden">
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground">Loading your chats...</p>
               </div>
-              <ModelSelector selectedModel={selectedModel} onChange={setSelectedModel} />
-              <Sidebar
-                chats={chats}
-                onNewChat={handleNewChat}
-                onSelectChat={setSelectedChatId}
-                selectedChatId={selectedChatId}
-              />
-            </>
+            </div>
+          ) : selectedChat ? (
+            <ChatWindow
+              messages={selectedChat.messages}
+              onSendMessage={handleSendMessage}
+              selectedModel={selectedModel}
+              includeMemory={includeMemory}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <img
+                  src="/sush.png"
+                  alt="Sushi"
+                  className="mx-auto mb-4 w-64 h-auto"
+                />
+                <h1 className="text-2xl font-bold">Welcome to Sushi AI 🍣</h1>
+                <p className="text-muted-foreground">
+                  Start a new chat or select an existing one.
+                </p>
+              </div>
+            </div>
           )}
         </div>
-        <button
-          onClick={() => setSidebarOpen((prev) => !prev)}
-          className="absolute top-1/2 right-[-1rem] transform -translate-y-1/2 bg-card border border-gray-300 rounded-full p-1 z-10"
-        >
-          {sidebarOpen ? (
-            <ChevronLeft className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
-      </div>
-      {/* Main Chat Window */}
-      <div className="flex-1">
-        {selectedChat ? (
-          <ChatWindow
-            messages={selectedChat.messages}
-            onSendMessage={handleSendMessage}
-            selectedModel={selectedModel}
-            includeMemory={includeMemory}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <img
-                src="/sush.png"
-                alt="Sushi"
-                className="mx-auto mb-4 w-64 h-auto"
-              />
-              <h1 className="text-2xl font-bold">Welcome to Sushi AI 🍣</h1>
-              <p className="text-muted-foreground">
-                Start a new chat or select an existing one.
-              </p>
-            </div>
-          </div>
-        )}
       </div>
       <Toaster />
     </div>
