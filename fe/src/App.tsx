@@ -45,10 +45,9 @@ export default function App() {
             const userChats = await getChats(user.id, workspace.id);
             setChats(userChats);
           } else {
-            // Fallback to temp workspace ID if DB operations fail
-            console.log("No home workspace found, using temporary one");
-            const tempWorkspaceId = "temp-workspace-123";
-            setHomeWorkspaceId(tempWorkspaceId);
+            // Fallback for when home workspace isn't found
+            console.log("No home workspace found");
+            setHomeWorkspaceId(""); // Empty string instead of invalid UUID
             setChats([]);
           }
           
@@ -57,8 +56,8 @@ export default function App() {
         } catch (error) {
           console.error("Error fetching initial data:", error);
           // Fallback for development
-          const tempWorkspaceId = "temp-workspace-123";
-          setHomeWorkspaceId(tempWorkspaceId);
+          console.log("Error handling - No workspace found");
+          setHomeWorkspaceId("");
           setChats([]);
         } finally {
           setLoading(false);
@@ -80,7 +79,12 @@ export default function App() {
     }
 
     try {
-      const workspaceId = homeWorkspaceId || "temp-workspace-id";
+      const workspaceId = homeWorkspaceId;
+      
+      if (!workspaceId) {
+        console.error("No valid workspace ID available for creating chat");
+        throw new Error("No valid workspace ID");
+      }
       
       // Create a new chat via the database
       const newChat = await createChat(
@@ -110,7 +114,17 @@ export default function App() {
       } else {
         // Fallback to client-side chat creation if DB operation fails
         const newChatId = crypto.randomUUID();
-        const clientChat: Chat = {
+        // Make sure we have a valid workspace ID
+      if (!workspaceId) {
+        toast({
+          title: "Error",
+          description: "No workspace available for creating a chat",
+          variant: "destructive",
+        });
+        return;
+      }
+        
+      const clientChat: Chat = {
           id: newChatId,
           title: "New Chat",
           messages: [],
@@ -135,7 +149,32 @@ export default function App() {
       
       // Fallback to client-side chat creation on error
       const newChatId = crypto.randomUUID();
-      const workspaceId = homeWorkspaceId || "temp-workspace-id";
+      // Use homeWorkspaceId directly without fallback to invalid ID
+      if (!homeWorkspaceId) {
+        console.error("No valid workspace ID available for creating fallback chat");
+        // Create a fully in-memory chat without persisting to DB
+        const fallbackChat: Chat = {
+          id: newChatId,
+          title: "New Chat (Memory Only)",
+          messages: [],
+          createdAt: new Date(),
+          model: selectedModel || "gpt-4o-mini",
+          workspaceId: "memory-only",
+          systemPrompt: "You are a helpful assistant.",
+          temperature: 0.7
+        };
+        
+        setChats(prevChats => [fallbackChat, ...prevChats]);
+        setSelectedChatId(fallbackChat.id);
+        
+        toast({
+          title: "Warning",
+          description: "Created chat in memory only (no workspace available)",
+          variant: "default",
+        });
+        
+        return;
+      }
       
       const fallbackChat: Chat = {
         id: newChatId,
@@ -143,7 +182,7 @@ export default function App() {
         messages: [],
         createdAt: new Date(),
         model: selectedModel || "gpt-4o-mini",
-        workspaceId: workspaceId,
+        workspaceId: homeWorkspaceId,
         systemPrompt: "You are a helpful assistant.",
         temperature: 0.7
       };

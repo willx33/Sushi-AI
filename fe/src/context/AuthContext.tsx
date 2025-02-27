@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // For development, create a mock user for easy testing
-    const isDevelopment = true; // Enable for easier development
+    const isDevelopment = true; // Enable for easier development testing
 
     if (isDevelopment) {
       // Mock user for development with a proper UUID format

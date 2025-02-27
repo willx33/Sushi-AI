@@ -1,6 +1,6 @@
 // fe/src/context/ThemeContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+// Removed useAuth import to avoid circular dependency
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -12,15 +12,16 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { profile } = useAuth();
+  // Don't use useAuth directly to avoid circular dependencies
   const [theme, setTheme] = useState<Theme>('system');
 
-  // Initialize theme from profile when it loads
+  // Load theme from localStorage instead of profile
   useEffect(() => {
-    if (profile?.theme) {
-      setTheme(profile.theme as Theme);
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
     }
-  }, [profile]);
+  }, []);
 
   // Apply theme to document
   useEffect(() => {
@@ -38,6 +39,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       root.classList.add(theme);
     }
+    
+    // Save to localStorage
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   return (

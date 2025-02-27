@@ -14,9 +14,9 @@ export interface Chat {
   messages: Message[];
   createdAt: Date;
   updatedAt?: Date;
-  workspaceId?: string;
+  workspaceId: string; // Make required
   folderId?: string;
-  model?: string;
+  model: string; // Make required
   systemPrompt?: string;
   temperature?: number;
   contextLength?: number;

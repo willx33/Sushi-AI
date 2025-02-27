@@ -81,19 +81,17 @@ async function streamAnthropicResponse(
     apiKey: apiKey
   });
 
-  // Convert the messages array to Anthropic format
-  const formattedMessages = convertToAnthropicMessages(messages);
-
-  const stream = await anthropic.messages.create({
+  // Using the legacy completions API since this version of the SDK doesn't support messages API
+  const stream = await anthropic.completions.create({
     model: model,
-    messages: formattedMessages,
-    max_tokens: 4000,
+    prompt: constructAnthropicPrompt(messages),
+    max_tokens_to_sample: 4000,
     stream: true
   });
 
   for await (const chunk of stream) {
-    if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-      onToken(chunk.delta.text);
+    if (chunk.completion) {
+      onToken(chunk.completion);
     }
   }
 }
@@ -177,21 +175,29 @@ async function streamGoogleResponse(
 }
 
 /**
- * Convert messages to Anthropic format
+ * Construct a prompt string for Anthropic's older completions API
  */
-function convertToAnthropicMessages(messages: any[]): any[] {
-  return messages.map(msg => {
-    const role = msg.role === 'user' ? 'user' : 
-                 msg.role === 'assistant' ? 'assistant' : 
-                 'user';
-    
-    return {
-      role: role,
-      content: msg.role === 'system' ? 
-        [{ type: 'text', text: msg.content }] : 
-        [{ type: 'text', text: msg.content }]
-    };
-  }).filter(msg => msg.role !== 'system');
+function constructAnthropicPrompt(messages: any[]): string {
+  let prompt = '';
+  let hasUserMessage = false;
+  
+  for (const msg of messages) {
+    if (msg.role === 'system') {
+      prompt += msg.content + '\n\n';
+    } else if (msg.role === 'user') {
+      prompt += '\n\nHuman: ' + msg.content;
+      hasUserMessage = true;
+    } else if (msg.role === 'assistant') {
+      prompt += '\n\nAssistant: ' + msg.content;
+    }
+  }
+  
+  // Ensure the prompt ends with "Assistant: " for the model to continue
+  if (!prompt.endsWith('Assistant: ') && hasUserMessage) {
+    prompt += '\n\nAssistant: ';
+  }
+  
+  return prompt;
 }
 
 /**

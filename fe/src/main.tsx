@@ -24,8 +24,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+// Simple App wrapper that doesn't use hooks
+const AppContainer = () => {
+  return (
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter>
@@ -51,5 +52,11 @@ createRoot(document.getElementById('root')!).render(
         </BrowserRouter>
       </ThemeProvider>
     </AuthProvider>
+  );
+};
+
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <AppContainer />
   </React.StrictMode>,
 );
