@@ -30,45 +30,72 @@ export default function App() {
 
   const { toast } = useToast();
 
-  // Simplified data loading
+  // Local storage based chat history loading
   useEffect(() => {
-    // Hardcoded workspace just to get the app working
-    const hardcodedWorkspace = {
-      id: `local-${Date.now()}`,
-      name: 'Home',
-      description: 'Default workspace',
-      isHome: true,
-      defaultModel: 'gpt-4o-mini',
-      defaultPrompt: 'You are a helpful assistant.',
-      defaultTemperature: 0.7,
-      defaultContextLength: 4000,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    // Always use the same workspace ID for consistency
+    const localWorkspaceId = 'local-workspace';
+    console.log("App: Using local workspace");
+    setHomeWorkspaceId(localWorkspaceId);
     
-    console.log("App: Using hardcoded workspace to fix loading issue");
-    setHomeWorkspaceId(hardcodedWorkspace.id);
-    
-    // Empty chat array
-    setChats([]);
-    console.log("App: Set empty chats array to fix loading issue");
-    
-    toast({
-      title: "Recovered",
-      description: "Application recovered from loading issue",
-      duration: 3000,
-    });
+    // Load chats from localStorage
+    try {
+      // Try to load chats from localStorage
+      const localStorageKey = 'sushi-ai:local-chats';
+      const savedChats = localStorage.getItem(localStorageKey);
+      
+      if (savedChats) {
+        const parsedChats = JSON.parse(savedChats);
+        console.log(`App: Loaded ${parsedChats.length} chats from localStorage`);
+        
+        // Ensure all chats have the required fields
+        const validChats = parsedChats.map(chat => ({
+          ...chat,
+          id: chat.id || `chat-${Date.now()}`,
+          title: chat.title || 'Untitled Chat',
+          messages: chat.messages || [],
+          createdAt: chat.createdAt ? new Date(chat.createdAt) : new Date(),
+          workspaceId: localWorkspaceId,
+          model: chat.model || 'gpt-4o-mini'
+        }));
+        
+        setChats(validChats);
+        
+        toast({
+          title: "Chats Loaded",
+          description: `${validChats.length} conversation${validChats.length === 1 ? '' : 's'} loaded.`,
+          duration: 3000,
+        });
+      } else {
+        console.log("App: No saved chats found in localStorage");
+        setChats([]);
+        
+        toast({
+          title: "Welcome",
+          description: "No previous conversations found. Start a new chat!",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("App: Error loading chats from localStorage:", error);
+      setChats([]);
+      
+      toast({
+        title: "Error",
+        description: "Could not load previous conversations",
+        duration: 3000,
+      });
+    }
   }, [toast]);
 
   const handleNewChat = async () => {
     try {
       console.log("Creating new local chat");
       
-      // Use the hardcoded workspace
+      // Use the consistent workspace ID
       const workspaceIdToUse = homeWorkspaceId;
       console.log("Using workspace:", workspaceIdToUse);
       
-      // Create a chat locally without relying on any external services
+      // Create a chat locally
       const chatId = `chat-${Date.now()}`;
       const newChat = {
         id: chatId,
@@ -85,8 +112,16 @@ export default function App() {
       
       // Add to the chat list and select it
       console.log("Created new chat:", newChat.id, "with title:", newChat.title);
-      setChats(prevChats => [newChat, ...prevChats]);
+      
+      // Update state with the new chat
+      const updatedChats = [newChat, ...chats];
+      setChats(updatedChats);
       setSelectedChatId(newChat.id);
+      
+      // Save to localStorage
+      const localStorageKey = 'sushi-ai:local-chats';
+      localStorage.setItem(localStorageKey, JSON.stringify(updatedChats));
+      console.log("Saved updated chat list to localStorage");
       
       toast({
         title: "Success",
@@ -132,35 +167,34 @@ export default function App() {
     }
 
     const isNewChat = currentChat.messages.length === 0;
+    let newTitle = currentChat.title;
+    
+    // If this is the first message, set title from message
+    if (isNewChat) {
+      newTitle = message.slice(0, 30);
+      console.log(`Setting chat title to: "${newTitle}"`);
+    }
 
-    // Update local state with user message
-    setChats(prevChats => 
-      prevChats.map(chat => 
-        chat.id === selectedChatId 
-          ? {
-              ...chat,
-              messages: [...chat.messages, newUserMessage],
-              title: isNewChat ? message.slice(0, 30) : chat.title
-            }
-          : chat
-      )
+    // Create updated chat object first
+    const updatedChat = {
+      ...currentChat,
+      messages: [...currentChat.messages, newUserMessage],
+      title: newTitle,
+      updatedAt: new Date()
+    };
+    
+    // Update all chats
+    const updatedChats = chats.map(chat => 
+      chat.id === selectedChatId ? updatedChat : chat
     );
     
-    // If this is the first message, update the chat title
-    if (isNewChat) {
-      // Update chat title based on first message
-      const newTitle = message.slice(0, 30);
-      console.log(`Updating chat title to: "${newTitle}"`);
-      
-      // Update in the UI immediately
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat.id === selectedChatId 
-            ? { ...chat, title: newTitle }
-            : chat
-        )
-      );
-    }
+    // Update state
+    setChats(updatedChats);
+    
+    // Save to localStorage immediately for user message
+    const localStorageKey = 'sushi-ai:local-chats';
+    localStorage.setItem(localStorageKey, JSON.stringify(updatedChats));
+    console.log("Saved user message to localStorage");
     
     // Send request to backend API
     try {
@@ -209,14 +243,24 @@ export default function App() {
         };
       }
 
-      // Update local state with assistant message
-      setChats(prevChats =>
-        prevChats.map(chat =>
-          chat.id === selectedChatId
-            ? { ...chat, messages: [...chat.messages, assistantMessage] }
-            : chat
-        )
+      // Update with assistant response
+      const finalChat = {
+        ...updatedChat,
+        messages: [...updatedChat.messages, assistantMessage],
+        updatedAt: new Date()
+      };
+      
+      // Update state with all conversations including assistant message
+      const finalChats = updatedChats.map(chat => 
+        chat.id === selectedChatId ? finalChat : chat
       );
+      
+      setChats(finalChats);
+      
+      // Save to localStorage again after assistant response
+      localStorage.setItem(localStorageKey, JSON.stringify(finalChats));
+      console.log("Saved assistant response to localStorage");
+      
     } catch (error) {
       console.error("Error in message handling:", error);
       toast({
