@@ -9,55 +9,44 @@ const getClient = () => {
   return supabaseAdmin || supabase;
 }
 
+// Debug mode to log all operations
+const DEBUG = true;
+
+// Get all chats for a workspace
 export async function getChats(userId: string, workspaceId?: string): Promise<Chat[]> {
-  // If in dev mode and no connection, use localStorage
-  if (isDevMode()) {
-    try {
-      // First try to use Supabase
-      const client = getClient();
-      const query = client
-        .from('chats')
-        .select('id, workspace_id, name, model, prompt, temperature, created_at, updated_at')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false });
-        
-      // Add workspace filter if provided
-      if (workspaceId) {
-        query.eq('workspace_id', workspaceId);
-      }
-        
-      const { data, error } = await query;
+  if (DEBUG) console.log(`getChats: Fetching chats for user ${userId} ${workspaceId ? `in workspace ${workspaceId}` : ''}`);
+  
+  // First try to get from localStorage for immediate display
+  const localChatsKey = `chats-${userId}`;
+  const localChats = getLocalStorageItem(localChatsKey) || [];
+  
+  if (localChats.length > 0) {
+    if (DEBUG) console.log(`getChats: Found ${localChats.length} chats in localStorage`);
+    const filteredChats = workspaceId 
+      ? localChats.filter((chat: Chat) => chat.workspaceId === workspaceId)
+      : localChats;
+      
+    // Continue with Supabase query in the background
+    setTimeout(() => {
+      fetchChatsFromSupabase(userId, workspaceId);
+    }, 100);
+    
+    return filteredChats;
+  }
+  
+  // If no localStorage data, fetch from Supabase directly
+  return await fetchChatsFromSupabase(userId, workspaceId);
+}
 
-      if (error) {
-        console.warn('Supabase error fetching chats, falling back to localStorage:', error);
-        // Fall back to localStorage
-        const localChats = getLocalStorageItem(`chats-${userId}`) || [];
-        return localChats.filter((chat: Chat) => !workspaceId || chat.workspaceId === workspaceId);
-      }
-
-      // We got data from Supabase, return it
-      return data.map(chat => ({
-        id: chat.id,
-        title: chat.name,
-        messages: [], // Messages will be loaded separately
-        createdAt: new Date(chat.created_at),
-        model: chat.model,
-        workspaceId: chat.workspace_id,
-        systemPrompt: chat.prompt,
-        temperature: chat.temperature
-      }));
-    } catch (error) {
-      console.warn('Error fetching chats, falling back to localStorage:', error);
-      // Fall back to localStorage
-      const localChats = getLocalStorageItem(`chats-${userId}`) || [];
-      return localChats.filter((chat: Chat) => !workspaceId || chat.workspaceId === workspaceId);
-    }
-  } else {
-    // Production mode - use Supabase only
+// Helper function to fetch chats from Supabase
+async function fetchChatsFromSupabase(userId: string, workspaceId?: string): Promise<Chat[]> {
+  try {
+    if (DEBUG) console.log(`fetchChatsFromSupabase: Querying for user ${userId}`);
+    
     const client = getClient();
     const query = client
       .from('chats')
-      .select('id, workspace_id, name, model, prompt, temperature, created_at, updated_at')
+      .select('*')  // Select all columns to ensure we get everything
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
       
@@ -69,174 +58,188 @@ export async function getChats(userId: string, workspaceId?: string): Promise<Ch
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching chats:', error);
+      if (DEBUG) console.error(`fetchChatsFromSupabase ERROR: ${error.message}`, error);
       return [];
     }
 
-    return data.map(chat => ({
+    if (!data || data.length === 0) {
+      if (DEBUG) console.log(`fetchChatsFromSupabase: No chats found for user ${userId}`);
+      return [];
+    }
+
+    if (DEBUG) console.log(`fetchChatsFromSupabase SUCCESS: Found ${data.length} chats`);
+    
+    const mappedChats = data.map(chat => ({
       id: chat.id,
-      title: chat.name,
+      title: chat.name || 'Untitled Chat',
       messages: [], // Messages will be loaded separately
       createdAt: new Date(chat.created_at),
-      model: chat.model,
+      updatedAt: new Date(chat.updated_at || chat.created_at),
+      model: chat.model || 'gpt-4o-mini',
       workspaceId: chat.workspace_id,
-      systemPrompt: chat.prompt,
-      temperature: chat.temperature
+      systemPrompt: chat.prompt || 'You are a helpful assistant',
+      temperature: chat.temperature || 0.7,
+      contextLength: chat.context_length || 4000,
+      userId: userId
     }));
+    
+    // Store in localStorage for future use
+    const localChatsKey = `chats-${userId}`;
+    setLocalStorageItem(localChatsKey, mappedChats);
+    
+    return mappedChats;
+  } catch (error) {
+    if (DEBUG) console.error(`fetchChatsFromSupabase FATAL ERROR: ${error}`);
+    return [];
   }
 }
 
+// Create a new chat
 export async function createChat(userId: string, workspaceId: string, chat: Partial<Chat>): Promise<Chat | null> {
+  if (!userId || !workspaceId) {
+    if (DEBUG) console.error(`createChat ERROR: Missing userId or workspaceId`);
+    return null;
+  }
+  
+  if (DEBUG) console.log(`createChat: Creating chat for user ${userId} in workspace ${workspaceId}`);
+  
   try {
-    if (!workspaceId) {
-      console.error('No workspace ID provided to createChat');
-      return null;
-    }
-    
-    console.log(`Creating chat with workspace ID: ${workspaceId}`);
-    
-    // For dev mode, handle potential Supabase errors by falling back to localStorage
-    if (isDevMode()) {
-      try {
-        const client = getClient();
-        const { data, error } = await client
-          .from('chats')
-          .insert({
-            user_id: userId,
-            workspace_id: workspaceId,
-            name: chat.title || 'New Chat',
-            model: chat.model || 'gpt-4o-mini',
-            prompt: chat.systemPrompt || 'You are a helpful assistant.',
-            temperature: chat.temperature || 0.7
-          })
-          .select()
-          .single();
-  
-        if (error) {
-          console.warn('Supabase error creating chat, falling back to localStorage:', error);
-          
-          // Create a chat in localStorage
-          const newChat = {
-            id: `local-${Date.now()}`,
-            title: chat.title || 'New Chat',
-            messages: [],
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            model: chat.model || 'gpt-4o-mini',
-            workspaceId: workspaceId,
-            systemPrompt: chat.systemPrompt || 'You are a helpful assistant.',
-            temperature: chat.temperature || 0.7,
-            userId: userId
-          };
-          
-          // Get existing chats and add the new one
-          const existingChats = getLocalStorageItem(`chats-${userId}`) || [];
-          const updatedChats = [newChat, ...existingChats];
-          setLocalStorageItem(`chats-${userId}`, updatedChats);
-          
-          return newChat;
-        }
-  
-        console.log('Chat created successfully in Supabase:', data);
-        
-        return {
-          id: data.id,
-          title: data.name,
-          messages: [],
-          createdAt: new Date(data.created_at),
-          model: data.model,
-          workspaceId: data.workspace_id,
-          systemPrompt: data.prompt,
-          temperature: data.temperature
-        };
-      } catch (error) {
-        console.warn('Unexpected error creating chat in Supabase, using localStorage:', error);
-        
-        // Create a chat in localStorage
-        const newChat = {
-          id: `local-${Date.now()}`,
-          title: chat.title || 'New Chat',
-          messages: [],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          model: chat.model || 'gpt-4o-mini',
-          workspaceId: workspaceId,
-          systemPrompt: chat.systemPrompt || 'You are a helpful assistant.',
-          temperature: chat.temperature || 0.7,
-          userId: userId
-        };
-        
-        // Get existing chats and add the new one
-        const existingChats = getLocalStorageItem(`chats-${userId}`) || [];
-        const updatedChats = [newChat, ...existingChats];
-        setLocalStorageItem(`chats-${userId}`, updatedChats);
-        
-        return newChat;
-      }
-    } else {
-      // Production mode - use Supabase only
-      const client = getClient();
-      const { data, error } = await client
-        .from('chats')
-        .insert({
-          user_id: userId,
-          workspace_id: workspaceId,
-          name: chat.title || 'New Chat',
-          model: chat.model || 'gpt-4o-mini',
-          prompt: chat.systemPrompt || 'You are a helpful assistant.',
-          temperature: chat.temperature || 0.7
-        })
-        .select()
-        .single();
+    const client = getClient();
+    const { data, error } = await client
+      .from('chats')
+      .insert({
+        user_id: userId,
+        workspace_id: workspaceId,
+        name: chat.title || 'New Chat',
+        model: chat.model || 'gpt-4o-mini',
+        prompt: chat.systemPrompt || 'You are a helpful assistant.',
+        temperature: chat.temperature || 0.7
+      })
+      .select('*')
+      .single();
 
-      if (error) {
-        console.error('Error creating chat:', error);
-        return null;
-      }
-
-      console.log('Chat created successfully:', data);
-      
-      return {
-        id: data.id,
-        title: data.name,
-        messages: [],
-        createdAt: new Date(data.created_at),
-        model: data.model,
-        workspaceId: data.workspace_id,
-        systemPrompt: data.prompt,
-        temperature: data.temperature
-      };
+    if (error) {
+      if (DEBUG) console.error(`createChat ERROR: ${error.message}`, error);
+      throw error;
     }
+
+    if (!data) {
+      if (DEBUG) console.error(`createChat ERROR: No data returned`);
+      throw new Error('No data returned from create operation');
+    }
+
+    if (DEBUG) console.log(`createChat SUCCESS: Created chat with ID ${data.id}`);
+    
+    const newChat = {
+      id: data.id,
+      title: data.name || 'New Chat',
+      messages: [],
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at || data.created_at),
+      model: data.model || 'gpt-4o-mini',
+      workspaceId: data.workspace_id,
+      systemPrompt: data.prompt || 'You are a helpful assistant.',
+      temperature: data.temperature || 0.7,
+      userId
+    };
+    
+    // Store in localStorage for backup
+    const localChats = getLocalStorageItem(`chats-${userId}`) || [];
+    setLocalStorageItem(`chats-${userId}`, [newChat, ...localChats]);
+    
+    return newChat;
   } catch (error) {
-    console.error('Unexpected error in createChat:', error);
+    if (DEBUG) console.error(`createChat FATAL ERROR: ${error}`);
     return null;
   }
 }
 
+// Update an existing chat
 export async function updateChat(userId: string, chatId: string, updates: Partial<Chat>): Promise<boolean> {
-  const client = getClient();
-  const { error } = await client
-    .from('chats')
-    .update({
-      name: updates.title,
-      model: updates.model,
-      prompt: updates.systemPrompt,
-      temperature: updates.temperature,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', chatId)
-    .eq('user_id', userId);
+  if (DEBUG) console.log(`updateChat: Updating chat ${chatId} for user ${userId}`, updates);
+  
+  try {
+    const client = getClient();
+    const { error } = await client
+      .from('chats')
+      .update({
+        name: updates.title,
+        model: updates.model,
+        prompt: updates.systemPrompt,
+        temperature: updates.temperature,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', chatId)
+      .eq('user_id', userId);
 
-  return !error;
+    if (error) {
+      if (DEBUG) console.error(`updateChat ERROR: ${error.message}`, error);
+      return false;
+    }
+    
+    if (DEBUG) console.log(`updateChat SUCCESS: Updated chat ${chatId}`);
+    
+    // Update in localStorage too
+    try {
+      const localChats = getLocalStorageItem(`chats-${userId}`) || [];
+      const updatedLocalChats = localChats.map(chat => {
+        if (chat.id === chatId) {
+          return { 
+            ...chat, 
+            ...updates,
+            title: updates.title || chat.title,
+            model: updates.model || chat.model,
+            systemPrompt: updates.systemPrompt || chat.systemPrompt,
+            temperature: updates.temperature || chat.temperature,
+            updatedAt: new Date()
+          };
+        }
+        return chat;
+      });
+      
+      setLocalStorageItem(`chats-${userId}`, updatedLocalChats);
+    } catch (localError) {
+      if (DEBUG) console.warn(`updateChat localStorage ERROR: ${localError}`);
+    }
+    
+    return true;
+  } catch (error) {
+    if (DEBUG) console.error(`updateChat FATAL ERROR: ${error}`);
+    return false;
+  }
 }
 
+// Delete a chat
 export async function deleteChat(userId: string, chatId: string): Promise<boolean> {
-  const client = getClient();
-  const { error } = await client
-    .from('chats')
-    .delete()
-    .eq('id', chatId)
-    .eq('user_id', userId);
+  if (DEBUG) console.log(`deleteChat: Deleting chat ${chatId} for user ${userId}`);
+  
+  try {
+    const client = getClient();
+    const { error } = await client
+      .from('chats')
+      .delete()
+      .eq('id', chatId)
+      .eq('user_id', userId);
 
-  return !error;
+    if (error) {
+      if (DEBUG) console.error(`deleteChat ERROR: ${error.message}`, error);
+      return false;
+    }
+    
+    if (DEBUG) console.log(`deleteChat SUCCESS: Deleted chat ${chatId}`);
+    
+    // Remove from localStorage too
+    try {
+      const localChats = getLocalStorageItem(`chats-${userId}`) || [];
+      const filteredChats = localChats.filter(chat => chat.id !== chatId);
+      setLocalStorageItem(`chats-${userId}`, filteredChats);
+    } catch (localError) {
+      if (DEBUG) console.warn(`deleteChat localStorage ERROR: ${localError}`);
+    }
+    
+    return true;
+  } catch (error) {
+    if (DEBUG) console.error(`deleteChat FATAL ERROR: ${error}`);
+    return false;
+  }
 }
