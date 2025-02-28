@@ -20,21 +20,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(false); // Start with false to avoid loading screen
+  const [loading, setLoading] = useState(true); // Start with true while we're loading
 
   useEffect(() => {
     const initAuth = async () => {
       try {
         console.log('Initializing user authentication...');
+        
+        // Get session 
         const { data: { session } } = await supabase.auth.getSession();
         
+        // Update session state
         setSession(session);
+        
+        // Update user state even if it's null (for proper auth state)
         setUser(session?.user ?? null);
         
+        // If we have a user, get or create profile
         if (session?.user) {
           console.log('Found user session:', session.user.id);
           try {
-            // Get or create profile
             let profile = await getProfile(session.user.id);
             
             if (!profile) {
@@ -48,13 +53,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else {
           console.log('No active session found');
+          setProfile(null);
         }
       } catch (error) {
         console.error('Error during auth initialization:', error);
+      } finally {
+        // Always set loading to false, regardless of outcome
+        console.log('Auth initialization complete, setting loading to false');
+        setLoading(false);
       }
     };
     
-    // Initialize authentication without setting loading
+    // Initialize authentication
     initAuth();
 
     // Listen for auth changes
@@ -62,33 +72,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         console.log('Auth state changed:', event);
         
-        if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          return;
-        }
+        // Start a new loading cycle for auth state changes
+        setLoading(true);
         
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          console.log('User session in auth change:', session.user.id);
-          try {
-            let profile = await getProfile(session.user.id);
+        try {
+          if (event === 'SIGNED_OUT') {
+            console.log('User signed out');
+            setUser(null);
+            setSession(null);
+            setProfile(null);
+          } else {
+            setSession(session);
+            setUser(session?.user ?? null);
             
-            if (!profile) {
-              console.log('No profile found in auth change, creating one');
-              profile = await createProfile(session.user.id, {});
+            if (session?.user) {
+              console.log('User session in auth change:', session.user.id);
+              try {
+                let profile = await getProfile(session.user.id);
+                
+                if (!profile) {
+                  console.log('No profile found in auth change, creating one');
+                  profile = await createProfile(session.user.id, {});
+                }
+                
+                setProfile(profile);
+              } catch (error) {
+                console.error('Error handling profile in auth change:', error);
+              }
+            } else {
+              setProfile(null);
             }
-            
-            setProfile(profile);
-          } catch (error) {
-            console.error('Error handling profile in auth change:', error);
           }
-        } else {
-          setProfile(null);
+        } catch (error) {
+          console.error('Error during auth state change handling:', error);
+        } finally {
+          // Always finish loading
+          console.log('Auth state change handling complete');
+          setLoading(false);
         }
       }
     );

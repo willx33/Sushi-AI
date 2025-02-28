@@ -50,10 +50,111 @@ export async function getHomeWorkspace(userId: string): Promise<Workspace | null
   try {
     console.log(`Looking for home workspace for user: ${userId}`);
     
+    // First check if we have a workspace in localStorage
+    const localWorkspace = getLocalStorageItem(`home-workspace-${userId}`);
+    if (localWorkspace) {
+      console.log('Found workspace in localStorage:', localWorkspace.id);
+      return localWorkspace;
+    }
+    
     // Check if we're in dev mode
     if (isDevMode()) {
       try {
-        // First try Supabase
+        // Try Supabase with a short timeout
+        console.log('Checking Supabase for workspace');
+        
+        // Use a promise with timeout to avoid hanging
+        const fetchPromise = new Promise<Workspace|null>(async (resolve) => {
+          try {
+            const { data, error } = await supabase
+              .from('workspaces')
+              .select('id, name, description, is_home, default_model, default_prompt, default_temperature, default_context_length, created_at, updated_at')
+              .eq('user_id', userId)
+              .eq('is_home', true)
+              .single();
+            
+            if (error) {
+              if (error.code === 'PGRST116') { // No rows returned
+                console.log('No home workspace found in Supabase. Creating one...');
+                const newWorkspace = await createWorkspace(userId, {
+                  name: 'Home',
+                  description: 'Default workspace',
+                  isHome: true,
+                  defaultModel: 'gpt-4o-mini',
+                  defaultPrompt: 'You are a helpful assistant.',
+                  defaultTemperature: 0.7,
+                  defaultContextLength: 4000
+                });
+                resolve(newWorkspace);
+              } else {
+                console.warn('Error fetching home workspace from Supabase:', error);
+                resolve(null);
+              }
+            } else {
+              console.log('Found existing home workspace in Supabase:', data.id);
+              const workspace = {
+                id: data.id,
+                name: data.name,
+                description: data.description,
+                isHome: data.is_home,
+                defaultModel: data.default_model,
+                defaultPrompt: data.default_prompt,
+                defaultTemperature: data.default_temperature,
+                defaultContextLength: data.default_context_length,
+                createdAt: new Date(data.created_at),
+                updatedAt: new Date(data.updated_at)
+              };
+              resolve(workspace);
+            }
+          } catch (error) {
+            console.warn('Unexpected error in Supabase query:', error);
+            resolve(null);
+          }
+        });
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise<Workspace|null>((resolve) => {
+          setTimeout(() => {
+            console.log('Supabase workspace fetch timed out');
+            resolve(null);
+          }, 3000);
+        });
+        
+        // Race the promises
+        const workspace = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        // If we got a workspace, return it
+        if (workspace) {
+          // Save to localStorage for future quick access
+          setLocalStorageItem(`home-workspace-${userId}`, workspace);
+          return workspace;
+        }
+      } catch (error) {
+        console.warn('Error in Supabase workspace fetch:', error);
+      }
+      
+      // If we get here, create a local workspace
+      console.log('Creating fallback local workspace');
+      const newLocalWorkspace = {
+        id: `local-workspace-${Date.now()}`,
+        name: 'Home',
+        description: 'Default workspace',
+        isHome: true,
+        defaultModel: 'gpt-4o-mini',
+        defaultPrompt: 'You are a helpful assistant.',
+        defaultTemperature: 0.7,
+        defaultContextLength: 4000,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Store in localStorage
+      setLocalStorageItem(`home-workspace-${userId}`, newLocalWorkspace);
+      
+      return newLocalWorkspace;
+    } else {
+      // Production mode - Try Supabase with fallback
+      try {
         const { data, error } = await supabase
           .from('workspaces')
           .select('id, name, description, is_home, default_model, default_prompt, default_temperature, default_context_length, created_at, updated_at')
@@ -63,53 +164,29 @@ export async function getHomeWorkspace(userId: string): Promise<Workspace | null
 
         if (error) {
           if (error.code === 'PGRST116') { // No rows returned
-            console.log('No home workspace found in Supabase. Creating one...');
-            try {
-              // Try to create in Supabase first
-              return await createWorkspace(userId, {
-                name: 'Home',
-                description: 'Default workspace',
-                isHome: true,
-                defaultModel: 'gpt-4o-mini',
-                defaultPrompt: 'You are a helpful assistant.',
-                defaultTemperature: 0.7,
-                defaultContextLength: 4000
-              });
-            } catch (createError) {
-              console.warn('Error creating workspace in Supabase, falling back to localStorage:', createError);
-              
-              // Create a local workspace
-              const localWorkspace = {
-                id: `local-workspace-${Date.now()}`,
-                name: 'Home',
-                description: 'Default workspace',
-                isHome: true,
-                defaultModel: 'gpt-4o-mini',
-                defaultPrompt: 'You are a helpful assistant.',
-                defaultTemperature: 0.7,
-                defaultContextLength: 4000,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              };
-              
-              // Store in localStorage
-              setLocalStorageItem(`home-workspace-${userId}`, localWorkspace);
-              
-              return localWorkspace;
+            console.log('No home workspace found. Creating one...');
+            const newWorkspace = await createWorkspace(userId, {
+              name: 'Home',
+              description: 'Default workspace',
+              isHome: true,
+              defaultModel: 'gpt-4o-mini',
+              defaultPrompt: 'You are a helpful assistant.',
+              defaultTemperature: 0.7,
+              defaultContextLength: 4000
+            });
+            
+            if (newWorkspace) {
+              // Save to localStorage
+              setLocalStorageItem(`home-workspace-${userId}`, newWorkspace);
             }
+            
+            return newWorkspace;
           }
           
-          console.warn('Error fetching home workspace from Supabase, checking localStorage:', error);
+          console.error('Error fetching home workspace:', error);
           
-          // Check if we have a workspace in localStorage
-          const localWorkspace = getLocalStorageItem(`home-workspace-${userId}`);
-          
-          if (localWorkspace) {
-            return localWorkspace;
-          }
-          
-          // Create a local workspace
-          const newLocalWorkspace = {
+          // Create a fallback
+          const fallbackWorkspace = {
             id: `local-workspace-${Date.now()}`,
             name: 'Home',
             description: 'Default workspace',
@@ -122,14 +199,14 @@ export async function getHomeWorkspace(userId: string): Promise<Workspace | null
             updatedAt: new Date()
           };
           
-          // Store in localStorage
-          setLocalStorageItem(`home-workspace-${userId}`, newLocalWorkspace);
+          // Save to localStorage
+          setLocalStorageItem(`home-workspace-${userId}`, fallbackWorkspace);
           
-          return newLocalWorkspace;
+          return fallbackWorkspace;
         }
         
-        console.log('Found existing home workspace in Supabase:', data.id);
-        return {
+        console.log('Found existing home workspace:', data.id);
+        const workspace = {
           id: data.id,
           name: data.name,
           description: data.description,
@@ -141,18 +218,16 @@ export async function getHomeWorkspace(userId: string): Promise<Workspace | null
           createdAt: new Date(data.created_at),
           updatedAt: new Date(data.updated_at)
         };
+        
+        // Save to localStorage
+        setLocalStorageItem(`home-workspace-${userId}`, workspace);
+        
+        return workspace;
       } catch (error) {
-        console.warn('Unexpected error accessing Supabase, using localStorage:', error);
+        console.error('Error in Supabase workspace fetch:', error);
         
-        // Check if we have a workspace in localStorage
-        const localWorkspace = getLocalStorageItem(`home-workspace-${userId}`);
-        
-        if (localWorkspace) {
-          return localWorkspace;
-        }
-        
-        // Create a local workspace
-        const newLocalWorkspace = {
+        // Create a fallback
+        const fallbackWorkspace = {
           id: `local-workspace-${Date.now()}`,
           name: 'Home',
           description: 'Default workspace',
@@ -165,56 +240,30 @@ export async function getHomeWorkspace(userId: string): Promise<Workspace | null
           updatedAt: new Date()
         };
         
-        // Store in localStorage
-        setLocalStorageItem(`home-workspace-${userId}`, newLocalWorkspace);
+        // Save to localStorage
+        setLocalStorageItem(`home-workspace-${userId}`, fallbackWorkspace);
         
-        return newLocalWorkspace;
+        return fallbackWorkspace;
       }
-    } else {
-      // Production mode - Supabase only
-      // First check if any home workspace exists
-      const { data, error } = await supabase
-        .from('workspaces')
-        .select('id, name, description, is_home, default_model, default_prompt, default_temperature, default_context_length, created_at, updated_at')
-        .eq('user_id', userId)
-        .eq('is_home', true)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') { // No rows returned
-          console.log('No home workspace found. Creating one...');
-          return createWorkspace(userId, {
-            name: 'Home',
-            description: 'Default workspace',
-            isHome: true,
-            defaultModel: 'gpt-4o-mini',
-            defaultPrompt: 'You are a helpful assistant.',
-            defaultTemperature: 0.7,
-            defaultContextLength: 4000
-          });
-        }
-        
-        console.error('Error fetching home workspace:', error);
-        return null;
-      }
-      
-      console.log('Found existing home workspace:', data.id);
-      return {
-        id: data.id,
-        name: data.name,
-        description: data.description,
-        isHome: data.is_home,
-        defaultModel: data.default_model,
-        defaultPrompt: data.default_prompt,
-        defaultTemperature: data.default_temperature,
-        defaultContextLength: data.default_context_length,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at)
-      };
     }
   } catch (error) {
     console.error("Unexpected error in getHomeWorkspace:", error);
-    return null;
+    
+    // Create a fallback workspace as last resort
+    const fallbackWorkspace = {
+      id: `emergency-workspace-${Date.now()}`,
+      name: 'Home',
+      description: 'Default workspace',
+      isHome: true,
+      defaultModel: 'gpt-4o-mini',
+      defaultPrompt: 'You are a helpful assistant.',
+      defaultTemperature: 0.7,
+      defaultContextLength: 4000,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    return fallbackWorkspace;
   }
 }
 

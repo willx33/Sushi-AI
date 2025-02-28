@@ -3,189 +3,240 @@ import { supabase, supabaseAdmin } from '../lib/supabase/client';
 import { isDevMode, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils';
 import { Message } from '@/types/chat';
 
-// Helper function to get the appropriate client
-const getClient = () => {
-  // Use supabaseAdmin if available, otherwise fall back to regular client
-  return supabaseAdmin || supabase;
-}
-
-// Debug mode to log all operations
+// Debug mode
 const DEBUG = true;
 
+// Get the appropriate client
+const getClient = () => {
+  return supabaseAdmin || supabase;
+};
+
+// Logs a message only if DEBUG is true
+const log = (message: string, ...data: any[]) => {
+  if (DEBUG) {
+    console.log(message, ...data);
+  }
+};
+
+// Logs an error
+const logError = (message: string, error: any) => {
+  console.error(message, error);
+};
+
+/**
+ * Get messages for a specific chat
+ */
 export async function getMessages(userId: string, chatId: string): Promise<Message[]> {
-  if (DEBUG) console.log(`getMessages: Fetching messages for chat ${chatId}`);
+  log(`getMessages: Fetching messages for chat ${chatId}`);
   
-  try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('messages')
-      .select('id, chat_id, content, role, model, created_at, sequence_number, image_paths')
-      .eq('user_id', userId)
-      .eq('chat_id', chatId)
-      .order('sequence_number', { ascending: true });
-
-    if (error) {
-      if (DEBUG) console.error(`getMessages ERROR: ${error.message}`, error);
-      
-      // Try localStorage
-      const messagesKey = `messages-${chatId}`;
-      const localMessages = getLocalStorageItem(messagesKey) || [];
-      return localMessages.sort((a, b) => 
-        (a.sequenceNumber || 0) - (b.sequenceNumber || 0)
-      );
-    }
-
-    if (!data || data.length === 0) {
-      if (DEBUG) console.log(`getMessages: No messages found for chat ${chatId}`);
-      return [];
-    }
-
-    if (DEBUG) console.log(`getMessages SUCCESS: Found ${data.length} messages`);
-    
-    const messages = data.map(message => ({
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      model: message.model,
-      createdAt: new Date(message.created_at),
-      imagePaths: message.image_paths || [],
-      sequenceNumber: message.sequence_number
-    }));
-    
-    // Save to localStorage for backup
-    setLocalStorageItem(`messages-${chatId}`, messages);
-    
-    return messages;
-  } catch (error) {
-    if (DEBUG) console.error(`getMessages FATAL ERROR: ${error}`);
-    
-    // Try localStorage as last resort
+  if (isDevMode()) {
+    // In dev mode, use localStorage
+    log(`getMessages: Using localStorage (dev mode)`);
     const messagesKey = `messages-${chatId}`;
-    const localMessages = getLocalStorageItem(messagesKey) || [];
-    return localMessages.sort((a, b) => 
-      (a.sequenceNumber || 0) - (b.sequenceNumber || 0)
-    );
+    const messages = getLocalStorageItem(messagesKey) || [];
+    
+    // Sort by sequence number if available
+    const sorted = [...messages].sort((a, b) => {
+      if (a.sequenceNumber !== undefined && b.sequenceNumber !== undefined) {
+        return a.sequenceNumber - b.sequenceNumber;
+      }
+      return 0;
+    });
+    
+    log(`getMessages: Found ${sorted.length} messages in localStorage`);
+    return sorted;
+  } else {
+    // In production mode, use Supabase
+    try {
+      log(`getMessages: Querying Supabase`);
+      const client = getClient();
+      const { data, error } = await client
+        .from('messages')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('chat_id', chatId)
+        .order('sequence_number', { ascending: true });
+      
+      if (error) {
+        logError(`getMessages ERROR: ${error.message}`, error);
+        
+        // Fallback to localStorage if Supabase fails
+        const messagesKey = `messages-${chatId}`;
+        const fallbackMessages = getLocalStorageItem(messagesKey) || [];
+        log(`getMessages: Falling back to localStorage, found ${fallbackMessages.length} messages`);
+        return fallbackMessages;
+      }
+      
+      if (!data || data.length === 0) {
+        log(`getMessages: No messages found in database`);
+        return [];
+      }
+      
+      log(`getMessages: Found ${data.length} messages in database`);
+      
+      // Map database format to our Message type
+      const messages = data.map(item => ({
+        id: item.id,
+        role: item.role,
+        content: item.content,
+        model: item.model,
+        createdAt: new Date(item.created_at),
+        imagePaths: item.image_paths || [],
+        sequenceNumber: item.sequence_number
+      }));
+      
+      // Also save to localStorage for backup
+      setLocalStorageItem(`messages-${chatId}`, messages);
+      
+      return messages;
+    } catch (error) {
+      logError(`getMessages ERROR: Unexpected error`, error);
+      
+      // Fallback to localStorage on any error
+      const messagesKey = `messages-${chatId}`;
+      const fallbackMessages = getLocalStorageItem(messagesKey) || [];
+      log(`getMessages: Falling back to localStorage, found ${fallbackMessages.length} messages`);
+      return fallbackMessages;
+    }
   }
 }
 
+/**
+ * Create a new message
+ */
 export async function createMessage(
   userId: string, 
   chatId: string, 
   message: Message, 
   sequenceNumber: number
 ): Promise<Message | null> {
-  if (DEBUG) console.log(`createMessage: Creating message for chat ${chatId}, sequence ${sequenceNumber}`);
+  log(`createMessage: Creating message for chat ${chatId}, seq=${sequenceNumber}`);
   
-  try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('messages')
-      .insert({
-        user_id: userId,
-        chat_id: chatId,
-        content: message.content,
-        role: message.role,
-        model: message.model,
-        sequence_number: sequenceNumber,
-        image_paths: message.imagePaths || []
-      })
-      .select('*')
-      .single();
-
-    if (error) {
-      if (DEBUG) console.error(`createMessage ERROR: ${error.message}`, error);
+  // Don't store messages for temporary chats
+  if (chatId.startsWith('temp-')) {
+    log(`createMessage: Skipping storage for temporary chat`);
+    return message;
+  }
+  
+  // Prepare the message object
+  const newMessage = {
+    id: `msg-${Date.now()}`,
+    role: message.role,
+    content: message.content,
+    model: message.model,
+    createdAt: new Date(),
+    imagePaths: message.imagePaths || [],
+    sequenceNumber
+  };
+  
+  if (isDevMode()) {
+    // In dev mode, only use localStorage
+    log(`createMessage: Using localStorage (dev mode)`);
+    
+    // Save to localStorage
+    const messagesKey = `messages-${chatId}`;
+    const existingMessages = getLocalStorageItem(messagesKey) || [];
+    setLocalStorageItem(messagesKey, [...existingMessages, newMessage]);
+    
+    log(`createMessage: Saved to localStorage, ID: ${newMessage.id}`);
+    return newMessage;
+  } else {
+    // In production mode, use Supabase
+    try {
+      log(`createMessage: Saving to Supabase`);
+      const client = getClient();
+      const { data, error } = await client
+        .from('messages')
+        .insert({
+          user_id: userId,
+          chat_id: chatId,
+          content: message.content,
+          role: message.role,
+          model: message.model,
+          sequence_number: sequenceNumber,
+          image_paths: message.imagePaths || []
+        })
+        .select()
+        .single();
       
-      // Save to localStorage even if Supabase fails
-      const newMessage = {
-        id: `local-msg-${Date.now()}`,
-        role: message.role,
-        content: message.content,
-        model: message.model,
-        createdAt: new Date(),
-        imagePaths: message.imagePaths || [],
-        sequenceNumber
+      if (error) {
+        logError(`createMessage ERROR: ${error.message}`, error);
+        
+        // Fallback to localStorage if Supabase fails
+        const messagesKey = `messages-${chatId}`;
+        const existingMessages = getLocalStorageItem(messagesKey) || [];
+        setLocalStorageItem(messagesKey, [...existingMessages, newMessage]);
+        
+        log(`createMessage: Fallback to localStorage, ID: ${newMessage.id}`);
+        return newMessage;
+      }
+      
+      // Map the created database entry to our Message type
+      const createdMessage = {
+        id: data.id,
+        role: data.role,
+        content: data.content,
+        model: data.model,
+        createdAt: new Date(data.created_at),
+        imagePaths: data.image_paths || [],
+        sequenceNumber: data.sequence_number
       };
       
+      // Also save to localStorage for backup
       const messagesKey = `messages-${chatId}`;
-      const localMessages = getLocalStorageItem(messagesKey) || [];
-      setLocalStorageItem(messagesKey, [...localMessages, newMessage]);
+      const existingMessages = getLocalStorageItem(messagesKey) || [];
+      setLocalStorageItem(messagesKey, [...existingMessages, createdMessage]);
       
+      log(`createMessage: Saved to Supabase, ID: ${createdMessage.id}`);
+      return createdMessage;
+    } catch (error) {
+      logError(`createMessage ERROR: Unexpected error`, error);
+      
+      // Fallback to localStorage on any error
+      const messagesKey = `messages-${chatId}`;
+      const existingMessages = getLocalStorageItem(messagesKey) || [];
+      setLocalStorageItem(messagesKey, [...existingMessages, newMessage]);
+      
+      log(`createMessage: Fallback to localStorage, ID: ${newMessage.id}`);
       return newMessage;
     }
-
-    if (!data) {
-      if (DEBUG) console.error(`createMessage ERROR: No data returned`);
-      throw new Error('No data returned from create operation');
-    }
-
-    if (DEBUG) console.log(`createMessage SUCCESS: Created message with ID ${data.id}`);
-    
-    const newMessage = {
-      id: data.id,
-      role: data.role,
-      content: data.content,
-      model: data.model,
-      createdAt: new Date(data.created_at),
-      imagePaths: data.image_paths || [],
-      sequenceNumber: data.sequence_number
-    };
-    
-    // Save to localStorage for backup
-    const messagesKey = `messages-${chatId}`;
-    const localMessages = getLocalStorageItem(messagesKey) || [];
-    setLocalStorageItem(messagesKey, [...localMessages, newMessage]);
-    
-    return newMessage;
-  } catch (error) {
-    if (DEBUG) console.error(`createMessage FATAL ERROR: ${error}`);
-    
-    // Create in localStorage as fallback
-    const newMessage = {
-      id: `local-msg-${Date.now()}`,
-      role: message.role,
-      content: message.content,
-      model: message.model,
-      createdAt: new Date(),
-      imagePaths: message.imagePaths || [],
-      sequenceNumber
-    };
-    
-    const messagesKey = `messages-${chatId}`;
-    const localMessages = getLocalStorageItem(messagesKey) || [];
-    setLocalStorageItem(messagesKey, [...localMessages, newMessage]);
-    
-    return newMessage;
   }
 }
 
+/**
+ * Delete all messages for a chat
+ */
 export async function deleteMessages(userId: string, chatId: string): Promise<boolean> {
-  if (DEBUG) console.log(`deleteMessages: Deleting messages for chat ${chatId}`);
+  log(`deleteMessages: Deleting messages for chat ${chatId}`);
   
+  // First delete from localStorage
+  localStorage.removeItem(`messages-${chatId}`);
+  log(`deleteMessages: Deleted from localStorage`);
+  
+  // If in dev mode, we're done
+  if (isDevMode()) {
+    return true;
+  }
+  
+  // In production mode, also delete from Supabase
   try {
+    log(`deleteMessages: Deleting from Supabase`);
     const client = getClient();
     const { error } = await client
       .from('messages')
       .delete()
       .eq('chat_id', chatId)
       .eq('user_id', userId);
-
+    
     if (error) {
-      if (DEBUG) console.error(`deleteMessages ERROR: ${error.message}`, error);
+      logError(`deleteMessages ERROR: ${error.message}`, error);
       return false;
     }
     
-    if (DEBUG) console.log(`deleteMessages SUCCESS: Deleted messages for chat ${chatId}`);
-    
-    // Remove from localStorage too
-    try {
-      localStorage.removeItem(`messages-${chatId}`);
-    } catch (localError) {
-      if (DEBUG) console.warn(`deleteMessages localStorage ERROR: ${localError}`);
-    }
-    
+    log(`deleteMessages: Deleted from Supabase`);
     return true;
   } catch (error) {
-    if (DEBUG) console.error(`deleteMessages FATAL ERROR: ${error}`);
+    logError(`deleteMessages ERROR: Unexpected error`, error);
     return false;
   }
 }
