@@ -47,19 +47,49 @@ export default function App() {
           // Get chats for this workspace
           const userChats = await getChats(user.id, workspace.id);
           console.log(`Loaded ${userChats.length} chats`);
+          
+          // Load messages for each chat
+          for (const chat of userChats) {
+            try {
+              const messages = await getMessages(user.id, chat.id);
+              chat.messages = messages;
+            } catch (msgError) {
+              console.error(`Error loading messages for chat ${chat.id}:`, msgError);
+              chat.messages = [];
+            }
+          }
+          
           setChats(userChats);
+          
+          // Show toast with number of conversations loaded
+          toast({
+            title: "Conversations Loaded",
+            description: `${userChats.length} conversation${userChats.length === 1 ? '' : 's'} loaded.`,
+            duration: 3000,
+          });
         } else {
           console.error("No home workspace found or created");
-          // Just leave the welcome screen showing rather than error
+          // Show toast indicating zero conversations
+          toast({
+            title: "Conversations Loaded",
+            description: "0 conversations found.",
+            duration: 3000,
+          });
         }
       } catch (error) {
         console.error("Error fetching initial data:", error);
-        // Don't show error toasts - just leave the welcome screen visible
+        // Show error toast for fetch failures
+        toast({
+          title: "Error Loading Conversations",
+          description: "Unable to load conversations. Please try again.",
+          variant: "destructive",
+          duration: 3000,
+        });
       }
     };
 
     fetchInitialData();
-  }, [user]);
+  }, [user, toast]);
 
   const handleNewChat = async () => {
     if (!user) {
@@ -71,23 +101,72 @@ export default function App() {
       return;
     }
 
-    // Create a fake chat that always works
-    const fakeChat = {
-      id: "chat-" + Date.now(),
-      title: "New Chat",
-      workspaceId: homeWorkspaceId || "fake-workspace",
-      userId: user.id,
-      model: selectedModel,
-      prompt: "You are a helpful assistant.",
-      temperature: 0.7,
-      contextLength: 4000,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      messages: []
-    };
-    
-    setChats(prevChats => [fakeChat, ...prevChats]);
-    setSelectedChatId(fakeChat.id);
+    try {
+      // Create a temporary fake chat immediately for better UX
+      const tempChat = {
+        id: "temp-" + Date.now(),
+        title: "New Chat",
+        workspaceId: homeWorkspaceId || "default-workspace",
+        userId: user.id,
+        model: selectedModel,
+        systemPrompt: "You are a helpful assistant.",
+        temperature: 0.7,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messages: []
+      };
+      
+      // Update UI immediately
+      setChats(prevChats => [tempChat, ...prevChats]);
+      setSelectedChatId(tempChat.id);
+      
+      // Then create the real chat in the database
+      if (!homeWorkspaceId) {
+        console.log("Creating default workspace since none exists");
+        const workspace = await getHomeWorkspace(user.id);
+        if (workspace) {
+          setHomeWorkspaceId(workspace.id);
+        } else {
+          console.error("Failed to create workspace");
+          return;
+        }
+      }
+      
+      // Use the workspace id we have now
+      const workspaceToUse = homeWorkspaceId || (await getHomeWorkspace(user.id))?.id;
+      
+      if (!workspaceToUse) {
+        console.error("Still no workspace available");
+        return;
+      }
+      
+      const newChat = await createChat(user.id, workspaceToUse, {
+        title: "New Chat",
+        model: selectedModel,
+        systemPrompt: "You are a helpful assistant.",
+        temperature: 0.7
+      });
+      
+      if (newChat) {
+        // Replace the temporary chat with the real one
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat.id === tempChat.id ? newChat : chat
+          )
+        );
+        setSelectedChatId(newChat.id);
+        console.log("Created new chat:", newChat.id);
+      } else {
+        console.error("Failed to create chat in database but using temporary chat");
+      }
+    } catch (error) {
+      console.error("Error creating new chat:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem creating a new chat, but you can continue with this temporary chat.",
+        duration: 5000,
+      });
+    }
   };
 
   const handleSendMessage = async (payload: {
@@ -132,7 +211,32 @@ export default function App() {
           : chat
       )
     );
+    
+    // If this is the first message, update the chat title in the database
+    if (isNewChat) {
+      updateChat(user.id, selectedChatId, { 
+        title: message.slice(0, 30) 
+      }).catch(err => {
+        console.error("Failed to update chat title:", err);
+      });
+    }
 
+    // Save the user message to the database if this is not a temporary chat
+    try {
+      if (!selectedChatId.startsWith('temp-')) {
+        await createMessage(
+          user.id, 
+          selectedChatId, 
+          newUserMessage, 
+          currentChat.messages.length
+        );
+      } else {
+        console.log("Using temporary chat - message not saved to database");
+      }
+    } catch (error) {
+      console.error("Error saving user message:", error);
+    }
+    
     // Send request to backend API
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -169,6 +273,22 @@ export default function App() {
             : chat
         )
       );
+      
+      // Save the assistant message to the database if this is not a temporary chat
+      try {
+        if (!selectedChatId.startsWith('temp-')) {
+          await createMessage(
+            user.id, 
+            selectedChatId, 
+            assistantMessage, 
+            currentChat.messages.length + 1
+          );
+        } else {
+          console.log("Using temporary chat - assistant message not saved to database");
+        }
+      } catch (error) {
+        console.error("Error saving assistant message:", error);
+      }
     } catch (error) {
       toast({
         title: "Error",

@@ -7,6 +7,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Check if we're in dev mode by looking at the URL
+export function isDevMode() {
+  return window.location.hostname === 'localhost' || 
+         window.location.hostname === '127.0.0.1' ||
+         window.location.hostname.includes('.local');
+}
+
+// Get item from localStorage with prefix
+export function getLocalStorageItem(key: string) {
+  const prefixedKey = `sushi-ai:${key}`;
+  const item = localStorage.getItem(prefixedKey);
+  return item ? JSON.parse(item) : null;
+}
+
+// Set item in localStorage with prefix
+export function setLocalStorageItem(key: string, value: any) {
+  const prefixedKey = `sushi-ai:${key}`;
+  localStorage.setItem(prefixedKey, JSON.stringify(value));
+}
+
+// Remove item from localStorage with prefix
+export function removeLocalStorageItem(key: string) {
+  const prefixedKey = `sushi-ai:${key}`;
+  localStorage.removeItem(prefixedKey);
+}
+
 /**
  * Send a streaming chat request to the API
  */

@@ -1,6 +1,6 @@
 // fe/src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, SUPABASE_URL } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { getProfile, Profile, createProfile } from '@/db/profile';
 
@@ -122,9 +122,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     
-    // Then handle Supabase signOut - but state is already cleared
     try {
-      await supabase.auth.signOut();
+      // Find all Supabase keys in localStorage and remove them
+      const supabaseKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          supabaseKeys.push(key);
+        }
+      }
+      
+      // Remove each key
+      supabaseKeys.forEach(key => {
+        console.log('Removing storage key:', key);
+        localStorage.removeItem(key);
+      });
+      
+      // Clear specific known keys (including those with tenant prefix)
+      const tenantId = SUPABASE_URL.match(/([a-z0-9-]+)\.supabase\.co/)?.[1];
+      if (tenantId) {
+        localStorage.removeItem(`sb-${tenantId}-auth-token`);
+      }
+      
+      // Remove common Supabase auth items
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('sb-refresh-token');
+      localStorage.removeItem('supabase.auth.refreshToken');
+      
+      // Only after clearing storage, sign out from Supabase
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Force a reload to ensure clean slate
+      window.location.href = '/login';
     } catch (error) {
       console.error('Error signing out:', error);
     }
