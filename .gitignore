@@ -1,3 +1,6 @@
 .env
+.env.local
+.env.*
+!.env.example
 be/node_modules
 fe/node_modules
