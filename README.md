@@ -41,3 +41,6 @@ PORT=4000 npm run dev
 # Run tests
 cd fe && npm test
 ```
+
+## Screenshot
+![Sushi AI Chat](images/sushi.png)
